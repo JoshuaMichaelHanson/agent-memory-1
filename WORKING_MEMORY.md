@@ -5,7 +5,7 @@ This file is temporary project memory until `agent-memory` can store and search 
 ## Current State
 
 - Repository path: `C:\Development\agent-memory-1`.
-- Active branch for current work: `feat/phase-6`.
+- Active branch for current work: `feat/phase-7`.
 - Git repository has been initialized.
 - `.gitignore` ignores IntelliJ, VS Code, Python, JavaScript, Java/JVM, build outputs, and local `.agent-memory` SQLite database files.
 - IntelliJ MCP is configured through `.codex/config.toml` using `http://127.0.0.1:64342/stream`.
@@ -17,6 +17,7 @@ This file is temporary project memory until `agent-memory` can store and search 
 - Phase 4 is complete: `MemoryService.get_by_id`, `get_by_key`, touch/no-touch retrieval metadata, `recent`, and the `get`/`recent` CLI commands exist.
 - Phase 5 is complete: `MemoryService.search`, FTS5 search, LIKE fallback, malformed FTS retry, search filters, touch/no-touch search metadata, and the `search` CLI command exist.
 - Phase 6 is complete: `delete`, `mirror-file`, `export-md`, mirrored file revisions, delete confirmation with `--yes`, and atomic Markdown export exist.
+- Phase 7 is complete: README documentation, AGENTS/CLAUDE bootstrap snippets, implementation report, full pytest, and implementation-spec acceptance commands are complete.
 - The local `.agent-memory/memory.db` initializes successfully, reports schema version `1`, WAL journal mode, and FTS5 search backend on this Python build.
 - `.venv` can be created with `scripts/setup-dev.ps1`; it installs the project editable with `.[dev]` and pytest. The setup script passed with pytest 9.1.1 on Python 3.14.3 after running outside the sandbox because ensurepip/pip temp-file writes were blocked inside the sandbox.
 
@@ -37,7 +38,7 @@ This file is temporary project memory until `agent-memory` can store and search 
 
 ## Next Task
 
-Start Phase 7 in `docs/BACKLOG.md`: expand README, add AGENTS/CLAUDE bootstrap examples, run the full acceptance command set, and write the final implementation report.
+Start Phase 8 in `docs/BACKLOG.md`: initialize `.agent-memory/memory.db`, insert durable project memories, verify retrieval, and update bootstrap docs to prefer `agent-memory search`.
 
 ## Migration Target
 

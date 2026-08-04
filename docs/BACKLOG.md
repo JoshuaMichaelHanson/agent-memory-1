@@ -81,12 +81,12 @@ Use this file as the operational checklist until the SQLite memory database is a
 
 ## Phase 7: Documentation and Final Readiness
 
-- [ ] Expand README with installation, quick start, command reference, JSON examples, path resolution, FTS fallback, security cautions, and MCP migration design.
-- [ ] Add `examples/AGENTS-memory-section.md`.
-- [ ] Add `examples/CLAUDE-memory-section.md`.
-- [ ] Run full `pytest`.
-- [ ] Run acceptance commands from the implementation spec.
-- [ ] Write final implementation report.
+- [x] Expand README with installation, quick start, command reference, JSON examples, path resolution, FTS fallback, security cautions, and MCP migration design.
+- [x] Add `examples/AGENTS-memory-section.md`.
+- [x] Add `examples/CLAUDE-memory-section.md`.
+- [x] Run full `pytest`.
+- [x] Run acceptance commands from the implementation spec.
+- [x] Write final implementation report.
 
 ## Phase 8: Self-Hosting Memory Cutover
 

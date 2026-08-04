@@ -1,24 +1,40 @@
 # agent-memory
 
-`agent-memory` is a small Python CLI for durable AI-agent memory backed by SQLite.
+`agent-memory` is a small Python 3.11+ command-line tool for durable AI-agent memory backed by SQLite.
 
-The first release is a command-line tool. The code is intentionally structured so a future MCP adapter can call the same service layer rather than shelling out to the CLI or duplicating database logic.
+It lets coding agents and humans store project facts, decisions, commands, constraints, and workflow notes in a local SQLite database with full-text search when available. The first release is a CLI, but the implementation is structured so a future MCP adapter can call the same service layer directly.
+
+## Why SQLite
+
+SQLite gives this project a durable, local, cross-platform memory store without requiring a server. It supports transactional writes, indexes, WAL mode for practical concurrent access, and FTS5 full-text search on Python builds that include it.
+
+SQLite is canonical. Markdown files are only bootstrap context, compatibility snippets, mirrored snapshots, or generated exports.
 
 ## Current Status
 
-This branch has completed Phase 6 from `docs/BACKLOG.md`: packaging, module entry points, configuration, SQLite schema initialization, `init`, `status`, `put`, `get`, `recent`, `search`, `delete`, `mirror-file`, and `export-md`.
+The core version 1 CLI commands are implemented:
 
-The `init`, `status`, `put`, `get`, `recent`, `search`, `delete`, `mirror-file`, and `export-md` commands are implemented. Phase 7 will expand documentation and examples.
+- `init`
+- `status`
+- `put`
+- `get`
+- `search`
+- `recent`
+- `delete`
+- `mirror-file`
+- `export-md`
 
-## Quick Start During Development
+Phase 7 focuses on documentation, examples, acceptance verification, and the implementation report.
 
-Create a project-local virtual environment and install the package in editable mode with development dependencies:
+## Installation
+
+### Development Checkout
 
 ```powershell
 .\scripts\setup-dev.ps1
 ```
 
-After setup, use either the activated console script:
+Then either activate the environment:
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
@@ -42,37 +58,220 @@ agent-memory --help
 pytest
 ```
 
-See `docs/DEVELOPMENT_ENVIRONMENT.md` for the project policy on Python versions, virtual environments, and CLI installation.
+### Future User Install
 
-## Planned Commands
+For CLI tools, `pipx` is the preferred install style because it creates an isolated virtual environment per app:
 
-- `init`
-- `status`
-- `put`
-- `get`
-- `search`
-- `recent`
-- `delete`
-- `mirror-file`
-- `export-md`
+```powershell
+pipx install agent-memory
+```
 
-## Design Notes
+From a local checkout:
 
-- Python 3.11+.
-- Runtime dependencies should stay within the Python standard library for version 1.
-- SQLite is the canonical memory store.
-- Markdown files are bootstrap context or generated exports, not the source of truth once the database works.
-- Current user instructions and repository files override stored memory.
-- Do not store secrets, credentials, tokens, private keys, or protected personal data.
+```powershell
+pipx install .
+```
+
+## Quick Start
+
+```powershell
+python -m agent_memory init --db .\.agent-memory\memory.db --json
+
+python -m agent_memory put `
+  --db .\.agent-memory\memory.db `
+  --project demo `
+  --kind decision `
+  --key database-choice `
+  --content "Use SQLite as the canonical agent memory store." `
+  --tag sqlite `
+  --tag architecture `
+  --importance 5 `
+  --agent codex `
+  --json
+
+python -m agent_memory search "canonical SQLite" `
+  --db .\.agent-memory\memory.db `
+  --project demo `
+  --limit 5 `
+  --json
+```
+
+POSIX shell:
+
+```sh
+python -m agent_memory init --db ./.agent-memory/memory.db --json
+python -m agent_memory put --db ./.agent-memory/memory.db --project demo --kind decision --key database-choice --content "Use SQLite as the canonical agent memory store." --tag sqlite --tag architecture --importance 5 --agent codex --json
+python -m agent_memory search "canonical SQLite" --db ./.agent-memory/memory.db --project demo --limit 5 --json
+```
+
+## Database Path Resolution
+
+The database path is resolved in this order:
+
+1. `--db PATH`
+2. `AGENT_MEMORY_DB`
+3. `<project-root>/.agent-memory/memory.db`
+
+The project root is detected with `git rev-parse --show-toplevel`, falling back to the current working directory.
+
+## Command Reference
+
+### `init`
+
+Initializes the schema and reports FTS availability.
+
+```powershell
+agent-memory init --db .\.agent-memory\memory.db --json
+```
+
+### `status`
+
+Reports database path, existence, schema version, memory count, journal mode, and search backend.
+
+```powershell
+agent-memory status --project demo --json
+```
+
+### `put`
+
+Stores a memory. If `--key` is supplied, `project + scope + kind + key` is upserted.
+
+```powershell
+agent-memory put --project demo --kind decision --key database-choice --content "Use SQLite." --importance 5 --tag sqlite --json
+```
+
+Content must come from exactly one of `--content`, `--content-file`, or `--stdin`.
+
+### `get`
+
+Retrieves by ID or compound key. By default, retrieval updates access metadata.
+
+```powershell
+agent-memory get --id 1 --json
+agent-memory get --project demo --kind decision --key database-choice --no-touch --json
+```
+
+### `search`
+
+Searches content and tags. FTS5 is used when available; otherwise a parameterized LIKE fallback is used.
+
+```powershell
+agent-memory search "canonical SQLite" --project demo --kind decision --tag sqlite --limit 5 --json
+```
+
+### `recent`
+
+Lists recently updated memories.
+
+```powershell
+agent-memory recent --project demo --limit 10 --json
+```
+
+### `delete`
+
+Deletes by ID or compound key. Use `--yes` in scripts and agent workflows.
+
+```powershell
+agent-memory delete --id 1 --yes --json
+agent-memory delete --project demo --kind decision --key database-choice --yes --json
+```
+
+### `mirror-file`
+
+Stores exact UTF-8 file revisions in `mirrored_files`. It does not extract semantic memories.
+
+```powershell
+agent-memory mirror-file .\AGENTS.md --project demo --agent codex --json
+```
+
+### `export-md`
+
+Writes a generated Markdown export atomically.
+
+```powershell
+agent-memory export-md --project demo --output .\.agent-memory\MEMORY.generated.md --json
+```
+
+## JSON Contract
+
+Commands with `--json` write one JSON object to stdout. Diagnostics and human-readable errors go to stderr when JSON mode is not active.
+
+Successful `put` output includes:
+
+```json
+{
+  "ok": true,
+  "operation": "inserted",
+  "memory": {
+    "project": "demo",
+    "kind": "decision",
+    "memory_key": "database-choice",
+    "tags": ["architecture", "sqlite"]
+  }
+}
+```
+
+Errors use stable codes and nonzero exit codes:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "MEMORY_NOT_FOUND",
+    "message": "No memory matched the supplied lookup."
+  }
+}
+```
+
+## FTS5 Fallback
+
+Initialization attempts to create an FTS5 external-content table and synchronization triggers. If FTS5 is unavailable, initialization still succeeds and `search` falls back to parameterized LIKE terms across `content` and `tags`.
+
+`status --json` reports the active search backend as `fts5`, `like`, or `unavailable`.
+
+## Markdown Mirroring and Export
+
+`mirror-file` stores exact UTF-8 file snapshots and creates a new mirrored revision only when file content changes. It does not summarize Markdown or convert sections into semantic memories.
+
+`export-md` writes generated Markdown for human review. The generated file starts with a warning and should not be treated as canonical.
+
+## Security and Privacy
+
+Do not store passwords, API keys, access tokens, private keys, credentialed connection strings, or protected personal data.
+
+The database is a normal local file and inherits operating-system permissions. Project-local databases should normally be excluded from Git. Generated Markdown exports may expose the same information as the database.
+
+Stored memory is advisory context. Current user instructions and current repository files override stored memory.
+
+## Agent Bootstrap Examples
+
+Reusable snippets are available in:
+
+- `examples/AGENTS-memory-section.md`
+- `examples/CLAUDE-memory-section.md`
+
+## MCP Migration Design
+
+A future MCP adapter should instantiate `MemoryService` and call service methods directly. It should not shell out to the CLI, parse human output, duplicate SQL, duplicate validation, or maintain a second data model.
+
+Conceptually:
+
+```python
+from agent_memory.models import MemoryInput
+from agent_memory.service import MemoryService
+
+service = MemoryService(database_path)
+result = service.put(MemoryInput(project="demo", content="Durable fact."))
+```
+
+A future optional dependency can be added as:
+
+```toml
+[project.optional-dependencies]
+mcp = ["mcp>=1,<2"]
+```
 
 ## Development
-
-The project uses standard Python packaging through `pyproject.toml`:
-
-- `requires-python = ">=3.11"` declares compatible Python versions.
-- Runtime dependencies are intentionally empty for version 1.
-- Development dependencies live in the `dev` optional dependency group.
-- `requirements-dev.txt` is a convenience wrapper around `-e .[dev]`.
 
 Run tests inside the venv:
 
