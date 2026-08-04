@@ -6,6 +6,8 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
+from .errors import DatabaseError
+
 SCHEMA_VERSION = "1"
 
 FTS_SCHEMA = """
@@ -88,10 +90,6 @@ class StatusResult:
             "most_recent_update": self.most_recent_update,
             "initialized": self.initialized,
         }
-
-
-class DatabaseError(RuntimeError):
-    pass
 
 
 def initialize_database(database_path: Path) -> InitializeResult:

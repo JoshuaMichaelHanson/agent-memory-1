@@ -37,16 +37,16 @@ Use this file as the operational checklist until the SQLite memory database is a
 
 ## Phase 3: Models, Validation, and Put
 
-- [ ] Implement `Memory` dataclass.
-- [ ] Implement `MemoryInput` dataclass.
-- [ ] Add dictionary serialization helpers.
-- [ ] Implement tag normalization and serialization.
-- [ ] Implement content normalization for hashing.
-- [ ] Implement service exceptions and stable error codes.
-- [ ] Implement `MemoryService.put`.
-- [ ] Implement `put` CLI command.
-- [ ] Validate exactly one content source: `--content`, `--content-file`, or `--stdin`.
-- [ ] Add keyed insert, keyed update, unchanged, unkeyed insert, tag, hash, and validation tests.
+- [x] Implement `Memory` dataclass.
+- [x] Implement `MemoryInput` dataclass.
+- [x] Add dictionary serialization helpers.
+- [x] Implement tag normalization and serialization.
+- [x] Implement content normalization for hashing.
+- [x] Implement service exceptions and stable error codes.
+- [x] Implement `MemoryService.put`.
+- [x] Implement `put` CLI command.
+- [x] Validate exactly one content source: `--content`, `--content-file`, or `--stdin`.
+- [x] Add keyed insert, keyed update, unchanged, unkeyed insert, tag, hash, and validation tests.
 
 ## Phase 4: Get and Recent
 

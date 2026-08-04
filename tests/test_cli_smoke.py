@@ -15,13 +15,14 @@ TMP_ROOT = REPO_ROOT / "tmp" / "tests"
 
 
 class CliSmokeTests(unittest.TestCase):
-    def run_agent_memory(self, *args: str) -> subprocess.CompletedProcess[str]:
+    def run_agent_memory(self, *args: str, input_text: str | None = None) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
         env["PYTHONPATH"] = str(SRC_ROOT)
         return subprocess.run(
             [sys.executable, "-m", "agent_memory", *args],
             cwd=REPO_ROOT,
             env=env,
+            input=input_text,
             text=True,
             capture_output=True,
             check=False,
@@ -78,6 +79,104 @@ class CliSmokeTests(unittest.TestCase):
         self.assertEqual(status_payload["project"], "demo")
         self.assertEqual(status_payload["total_memory_count"], 0)
         self.assertTrue(status_payload["wal_enabled"])
+
+    def test_put_json_inserts_keyed_memory(self) -> None:
+        db_path = self.db_path()
+
+        result = self.run_agent_memory(
+            "put",
+            "--json",
+            "--db",
+            str(db_path),
+            "--project",
+            "demo",
+            "--kind",
+            "decision",
+            "--key",
+            "database-choice",
+            "--content",
+            "Use SQLite as the canonical agent memory store.",
+            "--tag",
+            "SQLite",
+            "--tag",
+            "architecture",
+            "--importance",
+            "5",
+            "--agent",
+            "codex",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["operation"], "inserted")
+        self.assertEqual(payload["memory"]["memory_key"], "database-choice")
+        self.assertEqual(payload["memory"]["tags"], ["architecture", "sqlite"])
+        self.assertEqual(payload["memory"]["importance"], 5)
+
+    def test_put_supports_content_file_and_stdin(self) -> None:
+        db_path = self.db_path()
+        content_file = db_path.parent / "memory-note.md"
+        content_file.parent.mkdir(parents=True, exist_ok=True)
+        content_file.write_text("From file", encoding="utf-8")
+
+        file_result = self.run_agent_memory(
+            "put",
+            "--json",
+            "--db",
+            str(db_path),
+            "--project",
+            "demo",
+            "--content-file",
+            str(content_file),
+        )
+        self.assertEqual(file_result.returncode, 0, file_result.stderr)
+        self.assertEqual(json.loads(file_result.stdout)["memory"]["content"], "From file")
+
+        stdin_result = self.run_agent_memory(
+            "put",
+            "--json",
+            "--db",
+            str(db_path),
+            "--project",
+            "demo",
+            "--stdin",
+            input_text="From stdin",
+        )
+        self.assertEqual(stdin_result.returncode, 0, stdin_result.stderr)
+        self.assertEqual(json.loads(stdin_result.stdout)["memory"]["content"], "From stdin")
+
+    def test_put_validation_errors_are_json(self) -> None:
+        result = self.run_agent_memory(
+            "put",
+            "--json",
+            "--db",
+            str(self.db_path()),
+            "--project",
+            "demo",
+            "--content",
+            "   ",
+        )
+
+        self.assertEqual(result.returncode, 5)
+        payload = json.loads(result.stdout)
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["error"]["code"], "VALIDATION_ERROR")
+
+    def test_put_rejects_multiple_content_sources(self) -> None:
+        result = self.run_agent_memory(
+            "put",
+            "--json",
+            "--db",
+            str(self.db_path()),
+            "--project",
+            "demo",
+            "--content",
+            "content",
+            "--stdin",
+        )
+
+        self.assertEqual(result.returncode, 2)
 
 
 if __name__ == "__main__":

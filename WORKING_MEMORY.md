@@ -5,7 +5,7 @@ This file is temporary project memory until `agent-memory` can store and search 
 ## Current State
 
 - Repository path: `C:\Development\agent-memory-1`.
-- Active branch for current work: `feat/phase-2`.
+- Active branch for current work: `feat/phase-3`.
 - Git repository has been initialized.
 - `.gitignore` ignores IntelliJ, VS Code, Python, JavaScript, Java/JVM, build outputs, and local `.agent-memory` SQLite database files.
 - IntelliJ MCP is configured through `.codex/config.toml` using `http://127.0.0.1:64342/stream`.
@@ -13,6 +13,7 @@ This file is temporary project memory until `agent-memory` can store and search 
 - The full implementation spec is in `codex-sqlite-agent-memory-implementation-spec.md`.
 - Phase 1 is complete: `pyproject.toml`, `README.md`, `LICENSE`, `src/agent_memory`, and smoke tests exist.
 - Phase 2 is complete: `config.py`, `database.py`, `schema.sql`, idempotent `init`, richer `status`, and Phase 2 tests exist.
+- Phase 3 is complete: `models.py`, `errors.py`, `service.py`, memory/tag/content normalization, `MemoryService.put`, and the `put` CLI command exist.
 - The local `.agent-memory/memory.db` initializes successfully, reports schema version `1`, WAL journal mode, and FTS5 search backend on this Python build.
 - `.venv` can be created with `scripts/setup-dev.ps1`; it installs the project editable with `.[dev]` and pytest. The setup script passed with pytest 9.1.1 on Python 3.14.3 after running outside the sandbox because ensurepip/pip temp-file writes were blocked inside the sandbox.
 
@@ -26,10 +27,11 @@ This file is temporary project memory until `agent-memory` can store and search 
 - Do not implement the MCP server in version 1.
 - Use Markdown files only as bootstrap context and optional generated exports, not as canonical memory after the SQLite database is working.
 - Keep tests away from the real user profile and real project database. Current tests use ignored paths under `tmp/tests`.
+- `put` should create or initialize the database because it is a write command. Read-only commands should not create or mutate a database.
 
 ## Next Task
 
-Start Phase 3 in `docs/BACKLOG.md`: implement memory dataclasses, tag/content normalization, stable service errors, `MemoryService.put`, and the `put` CLI command.
+Start Phase 4 in `docs/BACKLOG.md`: implement `get_by_id`, `get_by_key`, touch/no-touch retrieval metadata, `recent`, and the `get`/`recent` CLI commands.
 
 ## Migration Target
 
