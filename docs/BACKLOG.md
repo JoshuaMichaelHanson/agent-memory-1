@@ -50,13 +50,13 @@ Use this file as the operational checklist until the SQLite memory database is a
 
 ## Phase 4: Get and Recent
 
-- [ ] Implement `MemoryService.get_by_id`.
-- [ ] Implement `MemoryService.get_by_key`.
-- [ ] Implement touch behavior for retrieval.
-- [ ] Implement `MemoryService.recent`.
-- [ ] Implement `get` CLI command.
-- [ ] Implement `recent` CLI command.
-- [ ] Add retrieval, touch, no-touch, missing, and recent ordering tests.
+- [x] Implement `MemoryService.get_by_id`.
+- [x] Implement `MemoryService.get_by_key`.
+- [x] Implement touch behavior for retrieval.
+- [x] Implement `MemoryService.recent`.
+- [x] Implement `get` CLI command.
+- [x] Implement `recent` CLI command.
+- [x] Add retrieval, touch, no-touch, missing, and recent ordering tests.
 
 ## Phase 5: Search
 

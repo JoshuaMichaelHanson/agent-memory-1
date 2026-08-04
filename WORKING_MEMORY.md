@@ -5,7 +5,7 @@ This file is temporary project memory until `agent-memory` can store and search 
 ## Current State
 
 - Repository path: `C:\Development\agent-memory-1`.
-- Active branch for current work: `feat/phase-3`.
+- Active branch for current work: `feat/phase-4`.
 - Git repository has been initialized.
 - `.gitignore` ignores IntelliJ, VS Code, Python, JavaScript, Java/JVM, build outputs, and local `.agent-memory` SQLite database files.
 - IntelliJ MCP is configured through `.codex/config.toml` using `http://127.0.0.1:64342/stream`.
@@ -14,6 +14,7 @@ This file is temporary project memory until `agent-memory` can store and search 
 - Phase 1 is complete: `pyproject.toml`, `README.md`, `LICENSE`, `src/agent_memory`, and smoke tests exist.
 - Phase 2 is complete: `config.py`, `database.py`, `schema.sql`, idempotent `init`, richer `status`, and Phase 2 tests exist.
 - Phase 3 is complete: `models.py`, `errors.py`, `service.py`, memory/tag/content normalization, `MemoryService.put`, and the `put` CLI command exist.
+- Phase 4 is complete: `MemoryService.get_by_id`, `get_by_key`, touch/no-touch retrieval metadata, `recent`, and the `get`/`recent` CLI commands exist.
 - The local `.agent-memory/memory.db` initializes successfully, reports schema version `1`, WAL journal mode, and FTS5 search backend on this Python build.
 - `.venv` can be created with `scripts/setup-dev.ps1`; it installs the project editable with `.[dev]` and pytest. The setup script passed with pytest 9.1.1 on Python 3.14.3 after running outside the sandbox because ensurepip/pip temp-file writes were blocked inside the sandbox.
 
@@ -28,10 +29,11 @@ This file is temporary project memory until `agent-memory` can store and search 
 - Use Markdown files only as bootstrap context and optional generated exports, not as canonical memory after the SQLite database is working.
 - Keep tests away from the real user profile and real project database. Current tests use ignored paths under `tmp/tests`.
 - `put` should create or initialize the database because it is a write command. Read-only commands should not create or mutate a database.
+- Default `get` updates `last_accessed_at` and increments `access_count`; use `--no-touch` for inspection without mutation.
 
 ## Next Task
 
-Start Phase 4 in `docs/BACKLOG.md`: implement `get_by_id`, `get_by_key`, touch/no-touch retrieval metadata, `recent`, and the `get`/`recent` CLI commands.
+Start Phase 5 in `docs/BACKLOG.md`: implement FTS-backed search, parameterized LIKE fallback, filters, ordering, malformed query handling, and the `search` CLI command.
 
 ## Migration Target
 

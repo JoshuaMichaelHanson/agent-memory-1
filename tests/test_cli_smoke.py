@@ -178,6 +178,105 @@ class CliSmokeTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 2)
 
+    def test_get_json_by_id_key_and_no_touch(self) -> None:
+        db_path = self.db_path()
+        put_result = self.run_agent_memory(
+            "put",
+            "--json",
+            "--db",
+            str(db_path),
+            "--project",
+            "demo",
+            "--kind",
+            "command",
+            "--key",
+            "run-tests",
+            "--content",
+            "Run pytest.",
+        )
+        self.assertEqual(put_result.returncode, 0, put_result.stderr)
+        memory_id = json.loads(put_result.stdout)["memory"]["id"]
+
+        get_result = self.run_agent_memory("get", "--json", "--db", str(db_path), "--id", str(memory_id))
+        self.assertEqual(get_result.returncode, 0, get_result.stderr)
+        touched = json.loads(get_result.stdout)["memory"]
+        self.assertEqual(touched["id"], memory_id)
+        self.assertEqual(touched["access_count"], 1)
+        self.assertIsNotNone(touched["last_accessed_at"])
+
+        key_result = self.run_agent_memory(
+            "get",
+            "--json",
+            "--db",
+            str(db_path),
+            "--project",
+            "demo",
+            "--kind",
+            "command",
+            "--key",
+            "run-tests",
+            "--no-touch",
+        )
+        self.assertEqual(key_result.returncode, 0, key_result.stderr)
+        inspected = json.loads(key_result.stdout)["memory"]
+        self.assertEqual(inspected["id"], memory_id)
+        self.assertEqual(inspected["access_count"], 1)
+        self.assertEqual(inspected["last_accessed_at"], touched["last_accessed_at"])
+
+    def test_get_missing_returns_not_found_json(self) -> None:
+        result = self.run_agent_memory("get", "--json", "--db", str(self.db_path()), "--id", "999")
+
+        self.assertEqual(result.returncode, 4)
+        payload = json.loads(result.stdout)
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["error"]["code"], "MEMORY_NOT_FOUND")
+
+    def test_recent_json_filters_project_kind_importance_and_limit(self) -> None:
+        db_path = self.db_path()
+        writes = [
+            ("demo", "note", "Low", "2"),
+            ("demo", "command", "Command", "4"),
+            ("demo", "note", "High", "5"),
+            ("other", "note", "Other", "5"),
+        ]
+        for project, kind, content, importance in writes:
+            result = self.run_agent_memory(
+                "put",
+                "--json",
+                "--db",
+                str(db_path),
+                "--project",
+                project,
+                "--kind",
+                kind,
+                "--content",
+                content,
+                "--importance",
+                importance,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+        result = self.run_agent_memory(
+            "recent",
+            "--json",
+            "--db",
+            str(db_path),
+            "--project",
+            "demo",
+            "--kind",
+            "note",
+            "--min-importance",
+            "3",
+            "--limit",
+            "5",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["command"], "recent")
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["memories"][0]["content"], "High")
 
 if __name__ == "__main__":
     unittest.main()

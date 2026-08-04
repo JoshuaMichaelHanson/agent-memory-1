@@ -107,6 +107,58 @@ class ServicePutTests(unittest.TestCase):
 
         self.assertEqual(result.memory.content_sha256, content_sha256("one\ntwo"))
 
+    def test_get_by_id_touches_by_default_and_no_touch_preserves_metadata(self) -> None:
+        path = self.db_path()
+        service = MemoryService(path)
+        inserted = service.put(MemoryInput(project="demo", kind="decision", memory_key="lookup", content="Lookup me."))
+
+        touched = service.get_by_id(inserted.memory.id)
+        self.assertIsNotNone(touched)
+        assert touched is not None
+        self.assertEqual(touched.access_count, 1)
+        self.assertIsNotNone(touched.last_accessed_at)
+
+        inspected = service.get_by_id(inserted.memory.id, touch=False)
+        self.assertIsNotNone(inspected)
+        assert inspected is not None
+        self.assertEqual(inspected.access_count, 1)
+        self.assertEqual(inspected.last_accessed_at, touched.last_accessed_at)
+
+    def test_get_by_key_and_missing_record_behavior(self) -> None:
+        path = self.db_path()
+        service = MemoryService(path)
+        inserted = service.put(
+            MemoryInput(project="demo", scope="project", kind="command", memory_key="run-tests", content="Run pytest.")
+        )
+
+        found = service.get_by_key(project="demo", scope="project", kind="command", memory_key="run-tests", touch=False)
+        missing = service.get_by_key(project="demo", scope="project", kind="command", memory_key="missing", touch=False)
+
+        self.assertIsNotNone(found)
+        assert found is not None
+        self.assertEqual(found.id, inserted.memory.id)
+        self.assertIsNone(missing)
+
+    def test_recent_filters_and_ordering(self) -> None:
+        path = self.db_path()
+        service = MemoryService(path)
+        low = service.put(MemoryInput(project="demo", kind="note", content="Low", importance=2))
+        time.sleep(0.01)
+        command = service.put(MemoryInput(project="demo", kind="command", content="Command", importance=4))
+        time.sleep(0.01)
+        high = service.put(MemoryInput(project="demo", kind="note", content="High", importance=5))
+        service.put(MemoryInput(project="other", kind="note", content="Other", importance=5))
+
+        recent = service.recent(project="demo", limit=10)
+        important_notes = service.recent(project="demo", kind="note", min_importance=3, limit=10)
+        limited = service.recent(project="demo", limit=1)
+
+        self.assertEqual([memory.id for memory in recent], [high.memory.id, command.memory.id, low.memory.id])
+        self.assertEqual([memory.id for memory in important_notes], [high.memory.id])
+        self.assertEqual([memory.id for memory in limited], [high.memory.id])
+
+    def test_recent_missing_database_returns_empty_list(self) -> None:
+        self.assertEqual(MemoryService(self.db_path()).recent(project="demo"), [])
 
 if __name__ == "__main__":
     unittest.main()

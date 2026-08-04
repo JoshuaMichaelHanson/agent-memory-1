@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .database import connect_writable, initialize_database
-from .errors import DatabaseError, ValidationError
+from .database import connect_read_only, connect_writable, initialize_database
+from .errors import DatabaseError, MemoryNotFoundError, ValidationError
 from .models import Memory, MemoryInput, PutResult, content_sha256, memory_from_row, serialize_tags
 
 
@@ -13,9 +13,9 @@ class MemoryService:
 
     def put(self, memory: MemoryInput) -> PutResult:
         memory = validate_memory_input(memory)
-        initialize_database(self.database_path)
 
         try:
+            initialize_database(self.database_path)
             with connect_writable(self.database_path) as connection:
                 with connection:
                     if memory.memory_key is None:
@@ -64,6 +64,111 @@ class MemoryService:
             raise
         except Exception as exc:
             raise DatabaseError(f"Could not write memory to database: {self.database_path}") from exc
+    def get_by_id(self, memory_id: int, *, touch: bool = True) -> Memory | None:
+        if memory_id < 1:
+            raise ValidationError("Memory ID must be a positive integer.")
+        if not self.database_path.exists():
+            return None
+
+        try:
+            if touch:
+                with connect_writable(self.database_path) as connection:
+                    with connection:
+                        row = connection.execute("SELECT * FROM memories WHERE id = ?", (memory_id,)).fetchone()
+                        if row is None:
+                            return None
+                        touch_memory(connection, memory_id)
+                        return fetch_memory_by_id(connection, memory_id)
+
+            with connect_read_only(self.database_path) as connection:
+                row = connection.execute("SELECT * FROM memories WHERE id = ?", (memory_id,)).fetchone()
+                return memory_from_row(row) if row is not None else None
+        except ValidationError:
+            raise
+        except Exception as exc:
+            raise DatabaseError(f"Could not read memory from database: {self.database_path}") from exc
+
+    def get_by_key(
+        self,
+        *,
+        project: str,
+        scope: str,
+        kind: str,
+        memory_key: str,
+        touch: bool = True,
+    ) -> Memory | None:
+        project = project.strip()
+        scope = scope.strip() or "project"
+        kind = kind.strip() or "note"
+        memory_key = memory_key.strip()
+        if not project:
+            raise ValidationError("Project is required for keyed lookup.")
+        if not memory_key:
+            raise ValidationError("Key is required for keyed lookup.")
+        if not self.database_path.exists():
+            return None
+
+        try:
+            if touch:
+                with connect_writable(self.database_path) as connection:
+                    with connection:
+                        row = fetch_memory_key_row(connection, project, scope, kind, memory_key)
+                        if row is None:
+                            return None
+                        memory_id = int(row["id"])
+                        touch_memory(connection, memory_id)
+                        return fetch_memory_by_id(connection, memory_id)
+
+            with connect_read_only(self.database_path) as connection:
+                row = fetch_memory_key_row(connection, project, scope, kind, memory_key)
+                return memory_from_row(row) if row is not None else None
+        except ValidationError:
+            raise
+        except Exception as exc:
+            raise DatabaseError(f"Could not read memory from database: {self.database_path}") from exc
+
+    def recent(
+        self,
+        *,
+        project: str,
+        limit: int = 10,
+        kind: str | None = None,
+        min_importance: int | None = None,
+    ) -> list[Memory]:
+        project = project.strip()
+        if not project:
+            raise ValidationError("Project is required.")
+        if limit < 1 or limit > 100:
+            raise ValidationError("Limit must be between 1 and 100.")
+        if min_importance is not None and (min_importance < 1 or min_importance > 5):
+            raise ValidationError("Minimum importance must be between 1 and 5.")
+        if not self.database_path.exists():
+            return []
+
+        clauses = ["project = ?"]
+        parameters: list[object] = [project]
+        if kind:
+            clauses.append("kind = ?")
+            parameters.append(kind.strip())
+        if min_importance is not None:
+            clauses.append("importance >= ?")
+            parameters.append(min_importance)
+        parameters.append(limit)
+
+        try:
+            with connect_read_only(self.database_path) as connection:
+                rows = connection.execute(
+                    f"""
+                    SELECT * FROM memories
+                    WHERE {' AND '.join(clauses)}
+                    ORDER BY updated_at DESC, id DESC
+                    LIMIT ?
+                    """,
+                    tuple(parameters),
+                ).fetchall()
+                return [memory_from_row(row) for row in rows]
+        except Exception as exc:
+            raise DatabaseError(f"Could not list recent memories from database: {self.database_path}") from exc
 
 
 def validate_memory_input(memory: MemoryInput) -> MemoryInput:
@@ -120,8 +225,30 @@ def fetch_memory_by_id(connection, memory_id: int) -> Memory:
         (memory_id,),
     ).fetchone()
     if row is None:
-        raise DatabaseError(f"Inserted memory could not be read back: {memory_id}")
+        raise MemoryNotFoundError(f"Memory not found: {memory_id}")
     return memory_from_row(row)
+
+
+def fetch_memory_key_row(connection, project: str, scope: str, kind: str, memory_key: str):
+    return connection.execute(
+        """
+        SELECT * FROM memories
+        WHERE project = ? AND scope = ? AND kind = ? AND memory_key = ?
+        """,
+        (project, scope, kind, memory_key),
+    ).fetchone()
+
+
+def touch_memory(connection, memory_id: int) -> None:
+    connection.execute(
+        """
+        UPDATE memories
+        SET last_accessed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+            access_count = access_count + 1
+        WHERE id = ?
+        """,
+        (memory_id,),
+    )
 
 
 def memory_matches_existing(row, memory: MemoryInput) -> bool:
