@@ -13,13 +13,14 @@ Use this file as the operational checklist until the SQLite memory database is a
 
 ## Phase 1: Packaging and CLI Skeleton
 
-- [ ] Create `pyproject.toml` with Python 3.11+ metadata and `agent-memory` console script.
-- [ ] Create `src/agent_memory/__init__.py`.
-- [ ] Create `src/agent_memory/__main__.py`.
-- [ ] Create initial `src/agent_memory/cli.py` using `argparse`.
-- [ ] Add a top-level `README.md` skeleton.
-- [ ] Add a minimal CLI smoke test.
-- [ ] Verify `python -m agent_memory --help`.
+- [x] Create `pyproject.toml` with Python 3.11+ metadata and `agent-memory` console script.
+- [x] Create `src/agent_memory/__init__.py`.
+- [x] Create `src/agent_memory/__main__.py`.
+- [x] Create initial `src/agent_memory/cli.py` using `argparse`.
+- [x] Add a top-level `README.md` skeleton.
+- [x] Add a minimal CLI smoke test.
+- [x] Verify `python -m agent_memory --help`.
+- [x] Add venv-based development setup documentation and scripts.
 
 ## Phase 2: Configuration and Database Initialization
 
