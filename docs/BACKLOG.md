@@ -24,16 +24,16 @@ Use this file as the operational checklist until the SQLite memory database is a
 
 ## Phase 2: Configuration and Database Initialization
 
-- [ ] Implement `src/agent_memory/config.py`.
-- [ ] Resolve DB path in this order: `--db`, `AGENT_MEMORY_DB`, project-local default.
-- [ ] Detect Git root with `git rev-parse --show-toplevel`, falling back to current directory.
-- [ ] Implement `src/agent_memory/database.py`.
-- [ ] Add `src/agent_memory/schema.sql`.
-- [ ] Apply WAL, busy timeout, foreign keys, and synchronous NORMAL on writable connections.
-- [ ] Detect FTS5 availability without failing initialization if unavailable.
-- [ ] Implement `init`.
-- [ ] Implement `status`.
-- [ ] Add database initialization and status tests.
+- [x] Implement `src/agent_memory/config.py`.
+- [x] Resolve DB path in this order: `--db`, `AGENT_MEMORY_DB`, project-local default.
+- [x] Detect Git root with `git rev-parse --show-toplevel`, falling back to current directory.
+- [x] Implement `src/agent_memory/database.py`.
+- [x] Add `src/agent_memory/schema.sql`.
+- [x] Apply WAL, busy timeout, foreign keys, and synchronous NORMAL on writable connections.
+- [x] Detect FTS5 availability without failing initialization if unavailable.
+- [x] Implement `init`.
+- [x] Implement `status`.
+- [x] Add database initialization and status tests.
 
 ## Phase 3: Models, Validation, and Put
 

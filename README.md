@@ -6,9 +6,9 @@ The first release is a command-line tool. The code is intentionally structured s
 
 ## Current Status
 
-This branch is implementing Phase 1 from `docs/BACKLOG.md`: packaging, module entry points, CLI skeleton, README skeleton, and smoke tests.
+This branch has completed Phase 2 from `docs/BACKLOG.md`: packaging, module entry points, configuration, SQLite schema initialization, and real `init`/`status` commands.
 
-Most commands are placeholders until later phases. The `status` command currently reports limited pre-database information and is intended to prove the CLI wiring.
+The `init` and `status` commands are implemented. Memory-writing and retrieval commands remain placeholders until later phases.
 
 ## Quick Start During Development
 
