@@ -257,5 +257,70 @@ class ServicePutTests(unittest.TestCase):
 
         self.assertEqual([result["memory"]["id"] for result in results], [inserted.memory.id])
 
+    def test_delete_by_id_and_key(self) -> None:
+        path = self.db_path()
+        service = MemoryService(path)
+        by_id = service.put(MemoryInput(project="demo", content="Delete by id."))
+        by_key = service.put(MemoryInput(project="demo", kind="command", memory_key="delete-key", content="Delete by key."))
+
+        self.assertTrue(service.delete_by_id(by_id.memory.id))
+        self.assertFalse(service.delete_by_id(by_id.memory.id))
+        self.assertTrue(service.delete_by_key(project="demo", scope="project", kind="command", memory_key="delete-key"))
+        self.assertIsNone(service.get_by_id(by_key.memory.id, touch=False))
+
+    def test_mirror_file_inserts_unchanged_and_changed_revisions(self) -> None:
+        path = self.db_path()
+        service = MemoryService(path)
+        source = path.parent / "AGENTS.md"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text("First revision\r\n", encoding="utf-8")
+
+        first = service.mirror_file(project="demo", path=source, source_agent="codex", project_root=path.parent)
+        unchanged = service.mirror_file(project="demo", path=source, source_agent="codex", project_root=path.parent)
+        source.write_text("Second revision\n", encoding="utf-8")
+        changed = service.mirror_file(project="demo", path=source, source_agent="codex", project_root=path.parent)
+
+        self.assertEqual(first["operation"], "inserted")
+        self.assertEqual(unchanged["operation"], "unchanged")
+        self.assertEqual(changed["operation"], "inserted")
+        self.assertEqual(first["path"], "AGENTS.md")
+        self.assertEqual(first["revision_id"], unchanged["revision_id"])
+        self.assertNotEqual(first["revision_id"], changed["revision_id"])
+
+    def test_mirror_file_missing_raises_file_error(self) -> None:
+        from agent_memory.errors import FileOperationError
+
+        service = MemoryService(self.db_path())
+
+        with self.assertRaises(FileOperationError):
+            service.mirror_file(project="demo", path=Path("missing-file.md"))
+
+    def test_export_markdown_writes_generated_file(self) -> None:
+        path = self.db_path()
+        service = MemoryService(path)
+        service.put(
+            MemoryInput(
+                project="demo",
+                kind="decision",
+                memory_key="sqlite-canonical",
+                content="SQLite is canonical.",
+                tags=("sqlite", "architecture"),
+                importance=5,
+            )
+        )
+        service.put(MemoryInput(project="demo", kind="note", content="Low value note.", importance=2))
+        output = path.parent / "MEMORY.generated.md"
+
+        result = service.export_markdown(project="demo", output_path=output, min_importance=3)
+        text = output.read_text(encoding="utf-8")
+
+        self.assertEqual(result["count"], 1)
+        self.assertIn("<!-- GENERATED FILE. DO NOT EDIT DIRECTLY. -->", text)
+        self.assertIn("# Agent Memory: demo", text)
+        self.assertIn("## Decision", text)
+        self.assertIn("### sqlite-canonical", text)
+        self.assertIn("SQLite is canonical.", text)
+        self.assertNotIn("Low value note.", text)
+
 if __name__ == "__main__":
     unittest.main()

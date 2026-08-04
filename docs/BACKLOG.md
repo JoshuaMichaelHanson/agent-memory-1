@@ -70,14 +70,14 @@ Use this file as the operational checklist until the SQLite memory database is a
 
 ## Phase 6: Delete, Mirror, and Export
 
-- [ ] Implement delete by ID.
-- [ ] Implement delete by compound key.
-- [ ] Implement interactive confirmation and `--yes`.
-- [ ] Implement `mirror_file`.
-- [ ] Implement `export_markdown`.
-- [ ] Write Markdown output atomically.
-- [ ] Implement `delete`, `mirror-file`, and `export-md` CLI commands.
-- [ ] Add delete, mirror, and export tests.
+- [x] Implement delete by ID.
+- [x] Implement delete by compound key.
+- [x] Implement interactive confirmation and `--yes`.
+- [x] Implement `mirror_file`.
+- [x] Implement `export_markdown`.
+- [x] Write Markdown output atomically.
+- [x] Implement `delete`, `mirror-file`, and `export-md` CLI commands.
+- [x] Add delete, mirror, and export tests.
 
 ## Phase 7: Documentation and Final Readiness
 

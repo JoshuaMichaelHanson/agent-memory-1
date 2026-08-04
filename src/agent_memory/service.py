@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import os
 import re
 import sqlite3
 from pathlib import Path
 from typing import Any
 
 from .database import connect_read_only, connect_writable, has_memories_fts, initialize_database
-from .errors import DatabaseError, MemoryNotFoundError, ValidationError
-from .models import Memory, MemoryInput, PutResult, content_sha256, memory_from_row, normalize_tags, serialize_tags
+from .errors import DatabaseError, FileOperationError, MemoryNotFoundError, ValidationError
+from .markdown import render_memory_export
+from .models import Memory, MemoryInput, PutResult, content_sha256, memory_from_row, normalize_content, normalize_tags, serialize_tags
 
 MAX_LIMIT = 100
 
@@ -227,6 +229,153 @@ class MemoryService:
         except Exception as exc:
             raise DatabaseError(f"Could not list recent memories from database: {self.database_path}") from exc
 
+    def delete_by_id(self, memory_id: int) -> bool:
+        if memory_id < 1:
+            raise ValidationError("Memory ID must be a positive integer.")
+        if not self.database_path.exists():
+            return False
+
+        try:
+            with connect_writable(self.database_path) as connection:
+                with connection:
+                    cursor = connection.execute("DELETE FROM memories WHERE id = ?", (memory_id,))
+                    return cursor.rowcount > 0
+        except Exception as exc:
+            raise DatabaseError(f"Could not delete memory from database: {self.database_path}") from exc
+
+    def delete_by_key(self, *, project: str, scope: str, kind: str, memory_key: str) -> bool:
+        project = validate_project(project)
+        scope = scope.strip() or "project"
+        kind = kind.strip() or "note"
+        memory_key = memory_key.strip()
+        if not memory_key:
+            raise ValidationError("Key is required for keyed deletion.")
+        if not self.database_path.exists():
+            return False
+
+        try:
+            with connect_writable(self.database_path) as connection:
+                with connection:
+                    cursor = connection.execute(
+                        """
+                        DELETE FROM memories
+                        WHERE project = ? AND scope = ? AND kind = ? AND memory_key = ?
+                        """,
+                        (project, scope, kind, memory_key),
+                    )
+                    return cursor.rowcount > 0
+        except Exception as exc:
+            raise DatabaseError(f"Could not delete memory from database: {self.database_path}") from exc
+
+    def mirror_file(self, *, project: str, path: Path, source_agent: str = "unknown", project_root: Path | None = None) -> dict[str, Any]:
+        project = validate_project(project)
+        source_agent = source_agent.strip() or "unknown"
+        try:
+            content = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise FileOperationError(f"Could not read file to mirror: {path}") from exc
+        except UnicodeError as exc:
+            raise FileOperationError(f"File is not valid UTF-8: {path}") from exc
+
+        normalized_content = normalize_content(content)
+        digest = content_sha256(normalized_content)
+        stored_path = display_path(path, project_root)
+
+        try:
+            initialize_database(self.database_path)
+            with connect_writable(self.database_path) as connection:
+                with connection:
+                    existing = connection.execute(
+                        """
+                        SELECT id FROM mirrored_files
+                        WHERE project = ? AND path = ? AND content_sha256 = ?
+                        """,
+                        (project, stored_path, digest),
+                    ).fetchone()
+                    if existing is not None:
+                        return {
+                            "operation": "unchanged",
+                            "project": project,
+                            "path": stored_path,
+                            "content_sha256": digest,
+                            "revision_id": int(existing["id"]),
+                        }
+                    cursor = connection.execute(
+                        """
+                        INSERT INTO mirrored_files(project, path, content, content_sha256, source_agent)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (project, stored_path, normalized_content, digest, source_agent),
+                    )
+                    return {
+                        "operation": "inserted",
+                        "project": project,
+                        "path": stored_path,
+                        "content_sha256": digest,
+                        "revision_id": int(cursor.lastrowid),
+                    }
+        except FileOperationError:
+            raise
+        except Exception as exc:
+            raise DatabaseError(f"Could not mirror file into database: {self.database_path}") from exc
+
+    def export_markdown(
+        self,
+        *,
+        project: str,
+        output_path: Path,
+        limit: int | None = None,
+        min_importance: int | None = None,
+    ) -> dict[str, Any]:
+        project = validate_project(project)
+        if limit is not None:
+            validate_limit(limit)
+        validate_min_importance(min_importance)
+        if not self.database_path.exists():
+            memories: list[Memory] = []
+        else:
+            clauses = ["project = ?"]
+            parameters: list[object] = [project]
+            if min_importance is not None:
+                clauses.append("importance >= ?")
+                parameters.append(min_importance)
+            limit_clause = ""
+            if limit is not None:
+                limit_clause = "LIMIT ?"
+                parameters.append(limit)
+            try:
+                with connect_read_only(self.database_path) as connection:
+                    rows = connection.execute(
+                        f"""
+                        SELECT * FROM memories
+                        WHERE {' AND '.join(clauses)}
+                        ORDER BY kind ASC, importance DESC, updated_at DESC, COALESCE(memory_key, printf('%012d', id)) ASC
+                        {limit_clause}
+                        """,
+                        tuple(parameters),
+                    ).fetchall()
+                    memories = [memory_from_row(row) for row in rows]
+            except Exception as exc:
+                raise DatabaseError(f"Could not export memories from database: {self.database_path}") from exc
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        markdown = render_memory_export(project=project, source_database=self.database_path, memories=memories)
+        tmp_path = output_path.with_name(f"{output_path.name}.{os.getpid()}.tmp")
+        try:
+            tmp_path.write_text(markdown, encoding="utf-8")
+            os.replace(tmp_path, output_path)
+        except OSError as exc:
+            try:
+                tmp_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+            raise FileOperationError(f"Could not write Markdown export: {output_path}") from exc
+        return {
+            "project": project,
+            "output": str(output_path),
+            "count": len(memories),
+        }
+
 
 def validate_memory_input(memory: MemoryInput) -> MemoryInput:
     normalized = memory.normalized()
@@ -441,13 +590,7 @@ def rows_to_search_results(rows, backend: str) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     for row in rows:
         memory = memory_from_row(row)
-        results.append(
-            {
-                "memory": memory.to_dict(),
-                "score": row["score"],
-                "search_backend": backend,
-            }
-        )
+        results.append({"memory": memory.to_dict(), "score": row["score"], "search_backend": backend})
     return results
 
 
@@ -483,6 +626,16 @@ def build_tokenized_fts_query(query: str) -> str:
 
 def escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def display_path(path: Path, project_root: Path | None) -> str:
+    resolved = path.resolve()
+    if project_root is not None:
+        try:
+            return str(resolved.relative_to(project_root.resolve()))
+        except ValueError:
+            pass
+    return str(path)
 
 
 def memory_matches_existing(row, memory: MemoryInput) -> bool:

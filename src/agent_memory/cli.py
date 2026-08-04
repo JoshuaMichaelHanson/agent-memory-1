@@ -104,14 +104,30 @@ def build_parser() -> argparse.ArgumentParser:
     search_parser.add_argument("--no-touch", action="store_true", help="Do not update access metadata.")
     search_parser.set_defaults(handler=handle_search)
 
-    for command in ("delete", "mirror-file", "export-md"):
-        command_parser = subparsers.add_parser(
-            command,
-            help=f"{command} command placeholder. Implementation arrives in a later phase.",
-            formatter_class=JsonHelpFormatter,
-        )
-        add_common_options(command_parser)
-        command_parser.set_defaults(handler=handle_not_implemented)
+    delete_parser = subparsers.add_parser("delete", help="Delete a memory by ID or compound key.", formatter_class=JsonHelpFormatter)
+    add_common_options(delete_parser)
+    delete_parser.add_argument("--id", dest="memory_id", type=int, default=None, help="Memory ID to delete.")
+    delete_parser.add_argument("--project", default=None, help="Project for keyed deletion.")
+    delete_parser.add_argument("--scope", default="project", help="Scope for keyed deletion.")
+    delete_parser.add_argument("--kind", default="note", help="Kind for keyed deletion.")
+    delete_parser.add_argument("--key", dest="memory_key", default=None, help="Memory key for keyed deletion.")
+    delete_parser.add_argument("--yes", action="store_true", help="Delete without interactive confirmation.")
+    delete_parser.set_defaults(handler=handle_delete)
+
+    mirror_parser = subparsers.add_parser("mirror-file", help="Mirror one UTF-8 file revision into SQLite.", formatter_class=JsonHelpFormatter)
+    add_common_options(mirror_parser)
+    mirror_parser.add_argument("path", type=Path, help="File to mirror.")
+    mirror_parser.add_argument("--project", required=True, help="Project name for the mirrored file.")
+    mirror_parser.add_argument("--agent", dest="source_agent", default="unknown", help="Agent or user mirroring the file.")
+    mirror_parser.set_defaults(handler=handle_mirror_file)
+
+    export_parser = subparsers.add_parser("export-md", help="Export memories to generated Markdown.", formatter_class=JsonHelpFormatter)
+    add_common_options(export_parser)
+    export_parser.add_argument("--project", required=True, help="Project to export.")
+    export_parser.add_argument("--output", type=Path, required=True, help="Markdown output path.")
+    export_parser.add_argument("--limit", type=int, default=None, help="Optional maximum memories to export.")
+    export_parser.add_argument("--min-importance", type=int, default=None, help="Minimum importance from 1 to 5.")
+    export_parser.set_defaults(handler=handle_export_md)
     return parser
 
 
@@ -285,6 +301,76 @@ def handle_recent(args: argparse.Namespace) -> int:
             print_memory_summary(memory)
     return SUCCESS
 
+
+def handle_delete(args: argparse.Namespace) -> int:
+    config = resolve_config(args.db)
+    require_delete_confirmation(args)
+    service = MemoryService(config.database_path)
+
+    if args.memory_id is not None:
+        if args.project or args.memory_key:
+            raise ValidationError("Use either --id or keyed deletion options, not both.")
+        deleted = service.delete_by_id(args.memory_id)
+        lookup = {"id": args.memory_id}
+    else:
+        if not args.project or not args.memory_key:
+            raise ValidationError("Keyed deletion requires --project and --key when --id is not supplied.")
+        deleted = service.delete_by_key(project=args.project, scope=args.scope, kind=args.kind, memory_key=args.memory_key)
+        lookup = {"project": args.project, "scope": args.scope, "kind": args.kind, "memory_key": args.memory_key}
+
+    if not deleted:
+        raise MemoryNotFoundError("No memory matched the supplied deletion target.")
+
+    payload = with_context({"deleted": True, "lookup": lookup}, "delete", config)
+    if args.json:
+        write_json(payload)
+    else:
+        print("Deleted memory.")
+    return SUCCESS
+
+
+def handle_mirror_file(args: argparse.Namespace) -> int:
+    config = resolve_config(args.db)
+    result = MemoryService(config.database_path).mirror_file(
+        project=args.project,
+        path=args.path,
+        source_agent=args.source_agent,
+        project_root=config.project_root,
+    )
+    payload = with_context(result, "mirror-file", config)
+    if args.json:
+        write_json(payload)
+    else:
+        print(f"{result['operation'].capitalize()} mirrored file {result['revision_id']}: {result['path']}")
+    return SUCCESS
+
+
+def handle_export_md(args: argparse.Namespace) -> int:
+    config = resolve_config(args.db)
+    result = MemoryService(config.database_path).export_markdown(
+        project=args.project,
+        output_path=args.output,
+        limit=args.limit,
+        min_importance=args.min_importance,
+    )
+    payload = with_context(result, "export-md", config)
+    if args.json:
+        write_json(payload)
+    else:
+        print(f"Exported {result['count']} memories to {result['output']}")
+    return SUCCESS
+
+
+def require_delete_confirmation(args: argparse.Namespace) -> None:
+    if args.yes:
+        return
+    if args.json:
+        raise ValidationError("Delete requires --yes when --json is used.")
+    if not sys.stdin.isatty():
+        raise ValidationError("Delete requires --yes when not running in an interactive terminal.")
+    response = input("Delete matching memory? [y/N] ")
+    if response.strip().lower() not in {"y", "yes"}:
+        raise ValidationError("Delete cancelled.")
 
 def read_content(args: argparse.Namespace) -> str:
     if args.content is not None:

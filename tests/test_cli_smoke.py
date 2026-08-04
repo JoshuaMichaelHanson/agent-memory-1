@@ -394,6 +394,109 @@ class CliSmokeTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)["count"], 1)
+    def test_delete_json_by_id_and_missing(self) -> None:
+        db_path = self.db_path()
+        put_result = self.run_agent_memory(
+            "put",
+            "--json",
+            "--db",
+            str(db_path),
+            "--project",
+            "demo",
+            "--content",
+            "Delete me.",
+        )
+        self.assertEqual(put_result.returncode, 0, put_result.stderr)
+        memory_id = json.loads(put_result.stdout)["memory"]["id"]
+
+        delete_result = self.run_agent_memory("delete", "--json", "--yes", "--db", str(db_path), "--id", str(memory_id))
+        self.assertEqual(delete_result.returncode, 0, delete_result.stderr)
+        self.assertTrue(json.loads(delete_result.stdout)["deleted"])
+
+        missing = self.run_agent_memory("delete", "--json", "--yes", "--db", str(db_path), "--id", str(memory_id))
+        self.assertEqual(missing.returncode, 4)
+        self.assertEqual(json.loads(missing.stdout)["error"]["code"], "MEMORY_NOT_FOUND")
+
+    def test_delete_requires_yes_when_noninteractive(self) -> None:
+        result = self.run_agent_memory("delete", "--json", "--db", str(self.db_path()), "--id", "1")
+
+        self.assertEqual(result.returncode, 5)
+        self.assertEqual(json.loads(result.stdout)["error"]["code"], "VALIDATION_ERROR")
+
+    def test_mirror_file_json_inserted_and_unchanged(self) -> None:
+        db_path = self.db_path()
+        source = db_path.parent / "memory-note.md"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text("Mirror content", encoding="utf-8")
+
+        first = self.run_agent_memory(
+            "mirror-file",
+            str(source),
+            "--json",
+            "--db",
+            str(db_path),
+            "--project",
+            "demo",
+            "--agent",
+            "codex",
+        )
+        second = self.run_agent_memory(
+            "mirror-file",
+            str(source),
+            "--json",
+            "--db",
+            str(db_path),
+            "--project",
+            "demo",
+            "--agent",
+            "codex",
+        )
+
+        self.assertEqual(first.returncode, 0, first.stderr)
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertEqual(json.loads(first.stdout)["operation"], "inserted")
+        self.assertEqual(json.loads(second.stdout)["operation"], "unchanged")
+
+    def test_export_md_json_writes_generated_file(self) -> None:
+        db_path = self.db_path()
+        output = db_path.parent / "MEMORY.generated.md"
+        put_result = self.run_agent_memory(
+            "put",
+            "--json",
+            "--db",
+            str(db_path),
+            "--project",
+            "demo",
+            "--kind",
+            "decision",
+            "--key",
+            "database-choice",
+            "--content",
+            "Use SQLite as canonical memory.",
+            "--importance",
+            "5",
+        )
+        self.assertEqual(put_result.returncode, 0, put_result.stderr)
+
+        export_result = self.run_agent_memory(
+            "export-md",
+            "--json",
+            "--db",
+            str(db_path),
+            "--project",
+            "demo",
+            "--output",
+            str(output),
+            "--min-importance",
+            "4",
+        )
+
+        self.assertEqual(export_result.returncode, 0, export_result.stderr)
+        payload = json.loads(export_result.stdout)
+        self.assertEqual(payload["count"], 1)
+        text = output.read_text(encoding="utf-8")
+        self.assertIn("<!-- GENERATED FILE. DO NOT EDIT DIRECTLY. -->", text)
+        self.assertIn("### database-choice", text)
 
 if __name__ == "__main__":
     unittest.main()
