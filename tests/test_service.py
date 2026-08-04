@@ -160,5 +160,102 @@ class ServicePutTests(unittest.TestCase):
     def test_recent_missing_database_returns_empty_list(self) -> None:
         self.assertEqual(MemoryService(self.db_path()).recent(project="demo"), [])
 
+    def test_search_finds_content_and_tags_with_filters(self) -> None:
+        path = self.db_path()
+        service = MemoryService(path)
+        low = service.put(MemoryInput(project="demo", kind="note", content="QueryDSL low note", tags=("jpa",), importance=2))
+        decision = service.put(
+            MemoryInput(
+                project="demo",
+                scope="project",
+                kind="decision",
+                memory_key="querydsl-projection-style",
+                content="Prefer constructor projections for QueryDSL DTO results.",
+                tags=("QueryDSL", "DTO", "JPA"),
+                importance=5,
+            )
+        )
+        service.put(MemoryInput(project="other", kind="decision", content="QueryDSL from another project", importance=5))
+        service.put(MemoryInput(project="demo", scope="global", kind="decision", content="QueryDSL DTO global scope", tags=("dto",), importance=5))
+
+        results = service.search(
+            project="demo",
+            query="QueryDSL DTO",
+            kind="decision",
+            scope="project",
+            tag="dto",
+            min_importance=4,
+            limit=10,
+            touch=False,
+        )
+
+        self.assertEqual([result["memory"]["id"] for result in results], [decision.memory.id])
+        self.assertEqual(results[0]["memory"]["tags"], ["dto", "jpa", "querydsl"])
+        self.assertIn(results[0]["search_backend"], {"fts5", "like"})
+        self.assertNotEqual(results[0]["memory"]["id"], low.memory.id)
+
+    def test_search_orders_by_importance_before_rank_or_recency(self) -> None:
+        path = self.db_path()
+        service = MemoryService(path)
+        low = service.put(MemoryInput(project="demo", content="canonical sqlite sqlite sqlite", importance=2))
+        time.sleep(0.01)
+        high = service.put(MemoryInput(project="demo", content="canonical sqlite", importance=5))
+
+        results = service.search(project="demo", query="canonical sqlite", limit=10, touch=False)
+        limited = service.search(project="demo", query="canonical sqlite", limit=1, touch=False)
+
+        self.assertGreaterEqual(len(results), 2)
+        self.assertEqual(results[0]["memory"]["id"], high.memory.id)
+        self.assertEqual(results[1]["memory"]["id"], low.memory.id)
+        self.assertEqual([result["memory"]["id"] for result in limited], [high.memory.id])
+
+    def test_search_touch_and_no_touch_behavior(self) -> None:
+        path = self.db_path()
+        service = MemoryService(path)
+        inserted = service.put(MemoryInput(project="demo", content="touch searchable memory", importance=4))
+
+        touched = service.search(project="demo", query="searchable", touch=True)
+        inspected = service.search(project="demo", query="searchable", touch=False)
+
+        self.assertEqual(touched[0]["memory"]["id"], inserted.memory.id)
+        self.assertEqual(touched[0]["memory"]["access_count"], 1)
+        self.assertEqual(inspected[0]["memory"]["access_count"], 1)
+
+    def test_search_malformed_fts_query_does_not_crash(self) -> None:
+        path = self.db_path()
+        service = MemoryService(path)
+        inserted = service.put(MemoryInput(project="demo", content="Malformed query fallback memory", importance=4))
+
+        results = service.search(project="demo", query='"Malformed', limit=10, touch=False)
+
+        self.assertEqual([result["memory"]["id"] for result in results], [inserted.memory.id])
+
+    def test_search_like_fallback_can_be_used_without_fts(self) -> None:
+        path = self.db_path()
+        service = MemoryService(path)
+        inserted = service.put(MemoryInput(project="demo", content="LIKE fallback content", tags=("fallback",), importance=4))
+
+        import agent_memory.service as service_module
+
+        original = service_module.has_memories_fts
+        service_module.has_memories_fts = lambda connection: False
+        try:
+            results = service.search(project="demo", query="fallback content", tag="fallback", limit=10, touch=False)
+        finally:
+            service_module.has_memories_fts = original
+
+        self.assertEqual([result["memory"]["id"] for result in results], [inserted.memory.id])
+        self.assertEqual(results[0]["search_backend"], "like")
+        self.assertIsNone(results[0]["score"])
+
+    def test_search_handles_unicode_content(self) -> None:
+        path = self.db_path()
+        service = MemoryService(path)
+        inserted = service.put(MemoryInput(project="demo", content="Unicode cafe memory: cafe deja vu", tags=("unicode",)))
+
+        results = service.search(project="demo", query="cafe deja", limit=10, touch=False)
+
+        self.assertEqual([result["memory"]["id"] for result in results], [inserted.memory.id])
+
 if __name__ == "__main__":
     unittest.main()

@@ -277,6 +277,123 @@ class CliSmokeTests(unittest.TestCase):
         self.assertEqual(payload["command"], "recent")
         self.assertEqual(payload["count"], 1)
         self.assertEqual(payload["memories"][0]["content"], "High")
+    def test_search_json_returns_matching_results_and_touches_by_default(self) -> None:
+        db_path = self.db_path()
+        put_result = self.run_agent_memory(
+            "put",
+            "--json",
+            "--db",
+            str(db_path),
+            "--project",
+            "demo",
+            "--kind",
+            "decision",
+            "--key",
+            "querydsl-projection-style",
+            "--content",
+            "Prefer constructor projections for QueryDSL DTO results.",
+            "--tag",
+            "querydsl",
+            "--tag",
+            "dto",
+            "--importance",
+            "5",
+        )
+        self.assertEqual(put_result.returncode, 0, put_result.stderr)
+
+        result = self.run_agent_memory(
+            "search",
+            "QueryDSL DTO",
+            "--json",
+            "--db",
+            str(db_path),
+            "--project",
+            "demo",
+            "--kind",
+            "decision",
+            "--tag",
+            "dto",
+            "--min-importance",
+            "4",
+            "--limit",
+            "5",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["command"], "search")
+        self.assertEqual(payload["count"], 1)
+        memory = payload["results"][0]["memory"]
+        self.assertEqual(memory["memory_key"], "querydsl-projection-style")
+        self.assertEqual(memory["access_count"], 1)
+        self.assertIn(payload["results"][0]["search_backend"], {"fts5", "like"})
+
+    def test_search_no_touch_and_no_results(self) -> None:
+        db_path = self.db_path()
+        put_result = self.run_agent_memory(
+            "put",
+            "--json",
+            "--db",
+            str(db_path),
+            "--project",
+            "demo",
+            "--content",
+            "Search no touch content.",
+        )
+        self.assertEqual(put_result.returncode, 0, put_result.stderr)
+
+        result = self.run_agent_memory(
+            "search",
+            "touch",
+            "--json",
+            "--db",
+            str(db_path),
+            "--project",
+            "demo",
+            "--no-touch",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["results"][0]["memory"]["access_count"], 0)
+
+        missing = self.run_agent_memory(
+            "search",
+            "absent",
+            "--json",
+            "--db",
+            str(db_path),
+            "--project",
+            "demo",
+        )
+        self.assertEqual(missing.returncode, 0, missing.stderr)
+        self.assertEqual(json.loads(missing.stdout)["count"], 0)
+
+    def test_search_malformed_query_is_json_success(self) -> None:
+        db_path = self.db_path()
+        put_result = self.run_agent_memory(
+            "put",
+            "--json",
+            "--db",
+            str(db_path),
+            "--project",
+            "demo",
+            "--content",
+            "Malformed query recovery content.",
+        )
+        self.assertEqual(put_result.returncode, 0, put_result.stderr)
+
+        result = self.run_agent_memory(
+            "search",
+            '"Malformed',
+            "--json",
+            "--db",
+            str(db_path),
+            "--project",
+            "demo",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["count"], 1)
 
 if __name__ == "__main__":
     unittest.main()

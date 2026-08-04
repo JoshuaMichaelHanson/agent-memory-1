@@ -92,7 +92,19 @@ def build_parser() -> argparse.ArgumentParser:
     recent_parser.add_argument("--limit", type=int, default=10, help="Maximum records to return, from 1 to 100.")
     recent_parser.set_defaults(handler=handle_recent)
 
-    for command in ("search", "delete", "mirror-file", "export-md"):
+    search_parser = subparsers.add_parser("search", help="Search memories by content and tags.", formatter_class=JsonHelpFormatter)
+    add_common_options(search_parser)
+    search_parser.add_argument("query", help="Search query text.")
+    search_parser.add_argument("--project", required=True, help="Project to search.")
+    search_parser.add_argument("--scope", default=None, help="Optional scope filter.")
+    search_parser.add_argument("--kind", default=None, help="Optional kind filter.")
+    search_parser.add_argument("--tag", default=None, help="Optional exact tag filter.")
+    search_parser.add_argument("--min-importance", type=int, default=None, help="Minimum importance from 1 to 5.")
+    search_parser.add_argument("--limit", type=int, default=10, help="Maximum records to return, from 1 to 100.")
+    search_parser.add_argument("--no-touch", action="store_true", help="Do not update access metadata.")
+    search_parser.set_defaults(handler=handle_search)
+
+    for command in ("delete", "mirror-file", "export-md"):
         command_parser = subparsers.add_parser(
             command,
             help=f"{command} command placeholder. Implementation arrives in a later phase.",
@@ -100,7 +112,6 @@ def build_parser() -> argparse.ArgumentParser:
         )
         add_common_options(command_parser)
         command_parser.set_defaults(handler=handle_not_implemented)
-
     return parser
 
 
@@ -209,6 +220,42 @@ def handle_get(args: argparse.Namespace) -> int:
     return SUCCESS
 
 
+def handle_search(args: argparse.Namespace) -> int:
+    config = resolve_config(args.db)
+    results = MemoryService(config.database_path).search(
+        project=args.project,
+        query=args.query,
+        scope=args.scope,
+        kind=args.kind,
+        tag=args.tag,
+        min_importance=args.min_importance,
+        limit=args.limit,
+        touch=not args.no_touch,
+    )
+    payload = with_context(
+        {
+            "project": args.project,
+            "query": args.query,
+            "count": len(results),
+            "results": results,
+        },
+        "search",
+        config,
+    )
+
+    if args.json:
+        write_json(payload)
+    else:
+        if not results:
+            print("No memories found.")
+        for index, result in enumerate(results):
+            if index:
+                print()
+                print("---")
+                print()
+            print_search_result(result)
+    return SUCCESS
+
 def handle_recent(args: argparse.Namespace) -> int:
     config = resolve_config(args.db)
     memories = MemoryService(config.database_path).recent(
@@ -275,6 +322,15 @@ def print_memory(memory: Memory) -> None:
     print()
     print(memory.content)
 
+
+def print_search_result(result: dict[str, Any]) -> None:
+    memory_payload = result["memory"]
+    memory = Memory(**memory_payload)
+    print_memory_summary(memory)
+    if result.get("score") is not None:
+        print(f"Score: {result['score']}")
+    print()
+    print(memory.content)
 
 def print_memory_summary(memory: Memory) -> None:
     identifier = memory.memory_key or str(memory.id)

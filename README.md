@@ -6,9 +6,9 @@ The first release is a command-line tool. The code is intentionally structured s
 
 ## Current Status
 
-This branch has completed Phase 4 from `docs/BACKLOG.md`: packaging, module entry points, configuration, SQLite schema initialization, real `init`/`status`, keyed/unkeyed `put`, `get`, and `recent`.
+This branch has completed Phase 5 from `docs/BACKLOG.md`: packaging, module entry points, configuration, SQLite schema initialization, `init`, `status`, `put`, `get`, `recent`, and `search`.
 
-The `init`, `status`, `put`, `get`, and `recent` commands are implemented. Search and maintenance commands remain placeholders until later phases.
+The `init`, `status`, `put`, `get`, `recent`, and `search` commands are implemented. Delete, mirror, and export commands remain placeholders until later phases.
 
 ## Quick Start During Development
 

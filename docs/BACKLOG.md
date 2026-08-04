@@ -60,13 +60,13 @@ Use this file as the operational checklist until the SQLite memory database is a
 
 ## Phase 5: Search
 
-- [ ] Create FTS5 virtual table and triggers when FTS5 is available.
-- [ ] Implement FTS search with `MATCH` and deterministic ordering.
-- [ ] Implement safe retry for malformed FTS queries.
-- [ ] Implement parameterized `LIKE` fallback.
-- [ ] Implement project, scope, kind, tag, minimum importance, and limit filters.
-- [ ] Implement `search` CLI command.
-- [ ] Add search tests for content, tags, filters, ordering, fallback, malformed syntax, and Unicode.
+- [x] Create FTS5 virtual table and triggers when FTS5 is available.
+- [x] Implement FTS search with `MATCH` and deterministic ordering.
+- [x] Implement safe retry for malformed FTS queries.
+- [x] Implement parameterized `LIKE` fallback.
+- [x] Implement project, scope, kind, tag, minimum importance, and limit filters.
+- [x] Implement `search` CLI command.
+- [x] Add search tests for content, tags, filters, ordering, fallback, malformed syntax, and Unicode.
 
 ## Phase 6: Delete, Mirror, and Export
 
