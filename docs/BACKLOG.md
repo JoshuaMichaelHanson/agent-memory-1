@@ -138,11 +138,11 @@ Use this file as the operational checklist until the SQLite memory database is a
 
 ## Phase 14: Production Usage Guide
 
-- [ ] Document production-safe memory practices.
-- [ ] Document what to store and what not to store.
-- [ ] Document memory as advisory context, not executable authority.
-- [ ] Provide production repository bootstrap examples.
-- [ ] Document explicit `.md` mirroring workflow and when SQLite should replace generated memory Markdown.
+- [x] Document production-safe memory practices.
+- [x] Document what to store and what not to store.
+- [x] Document memory as advisory context, not executable authority.
+- [x] Provide production repository bootstrap examples.
+- [x] Document explicit `.md` mirroring workflow and when SQLite should replace generated memory Markdown.
 
 ## Phase 15: Cross-Project and Global Memory Sharing
 

@@ -3,7 +3,7 @@
 
 # Agent Memory: agent-memory-1
 
-Generated: 2026-08-05T07:09:25Z
+Generated: 2026-08-05T09:41:58Z
 
 ## Architecture
 
@@ -12,10 +12,10 @@ Generated: 2026-08-05T07:09:25Z
 - ID: 13
 - Importance: 5
 - Scope: project
-- Updated: 2026-08-05T06:44:31.256Z
+- Updated: 2026-08-05T07:09:25.380Z
 - Tags: agents, cli, onboarding, phase-13
 
-Phase 13 is complete. The CLI now exposes agent onboarding through agent-memory instructions, machine-readable instructions JSON, and install-instructions for idempotent managed sections in AGENTS.md or another agent instruction file. This bridges global CLI installs until future MCP support can advertise tools, resources, and prompts directly.
+Phase 13 is complete. The CLI now exposes agent onboarding through agent-memory instructions, machine-readable instructions JSON, and install-instructions for idempotent managed sections in AGENTS.md or another agent instruction file. The generated section tells agents to use agent-memory --help and agent-memory <command> --help, and to tell users those help commands exist instead of guessing syntax. This bridges global CLI installs until future MCP support can advertise tools, resources, and prompts directly.
 
 ### backup-restore-polish
 
@@ -120,6 +120,16 @@ Repository path is C:\Development\agent-memory-1. Git is initialized. IntelliJ M
 Phase 9 is complete. The service layer enforces best-effort secret guardrails for put, mirror-file, and import-json before database mutation. The CLI exposes an explicit allow-sensitive override for intentional local-only storage. Detection covers obvious private key blocks, credentialed URLs, bearer token headers, secret-like assignments, AWS access key IDs, and GitHub token shapes, but remains best-effort and does not replace review.
 
 ## Workflow
+
+### phase-14-production-usage-guide
+
+- ID: 14
+- Importance: 5
+- Scope: project
+- Updated: 2026-08-05T09:41:53.330Z
+- Tags: documentation, phase-14, production-usage
+
+Phase 14 completed production usage guidance in docs/PRODUCTION_USAGE.md. The guide recommends global CLI plus project-local database, advisory-only memory, reviewed tracked exports, explicit Markdown mirroring, production-safe examples, review-before-checkin workflow, and a temporary Developer Only Testing section for local pipx wheel installs, Windows-to-macOS testing, Python version selection, and FTS5 verification.
 
 ### production-readiness-roadmap
 

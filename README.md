@@ -29,7 +29,7 @@ The core version 1 CLI commands are implemented:
 - `export-json`
 - `import-json`
 
-Phase 13 adds agent onboarding commands so a global CLI can print or install local instructions that teach agents how to use project memory.
+Phase 14 adds production usage guidance for applying the CLI responsibly in real application repositories.
 
 ## Installation
 
@@ -338,7 +338,7 @@ python -m agent_memory init --db .\.agent-memory\memory.db --json
 python -m agent_memory import-json .\docs\agent-memory.snapshot.json --db .\.agent-memory\memory.db --json
 ```
 
-See `docs/MEMORY_SYNC.md` for the full workflow. See `docs/DOCTOR.md` for diagnostics. See `docs/AGENT_ONBOARDING.md` for global CLI agent-bootstrap guidance.
+See `docs/MEMORY_SYNC.md` for the full workflow. See `docs/DOCTOR.md` for diagnostics. See `docs/AGENT_ONBOARDING.md` for global CLI agent-bootstrap guidance. See `docs/PRODUCTION_USAGE.md` for production-safe memory practices, repository bootstrap examples, and Markdown mirroring guidance.
 
 ## Development
 

@@ -73,6 +73,8 @@ Teach local agents how to use a global CLI without requiring each user to paste 
 
 ### Phase 14: Production Usage Guide
 
+Phase 14 status: complete. See `docs/PRODUCTION_USAGE.md`.
+
 Document how to use the tool responsibly in real application repositories.
 
 - Explain what to store and what not to store.

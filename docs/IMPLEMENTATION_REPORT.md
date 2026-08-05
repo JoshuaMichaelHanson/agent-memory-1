@@ -124,3 +124,7 @@ Phase 12 polished backup and restore workflows. `import-json --dry-run` validate
 ## Phase 13 Addendum
 
 Phase 13 added agent onboarding commands for global CLI discovery. `agent-memory instructions` prints concise agent-facing Markdown, `agent-memory instructions --json` returns machine-readable instruction metadata, and `agent-memory install-instructions` installs or replaces a managed section in files such as `AGENTS.md` while preserving hand-written content outside the markers. Details are documented in `docs/AGENT_ONBOARDING.md`.
+
+## Phase 14 Addendum
+
+Phase 14 added production usage guidance for real application repositories. `docs/PRODUCTION_USAGE.md` documents the recommended global CLI plus project-local database model, what to store, what not to store, advisory-only memory rules, production-safe examples, repository bootstrap snippets, explicit Markdown mirroring, SQLite-versus-Markdown guidance, and review-before-checkin workflow.
