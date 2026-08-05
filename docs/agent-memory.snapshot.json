@@ -1,0 +1,154 @@
+{
+  "format": "agent-memory.snapshot.v1",
+  "project": "agent-memory-1",
+  "source_database": "C:\\Development\\agent-memory-1\\.agent-memory\\memory.db",
+  "exported_at": "2026-08-04T23:04:19Z",
+  "memories": [
+    {
+      "id": 3,
+      "project": "agent-memory-1",
+      "scope": "project",
+      "kind": "architecture",
+      "memory_key": "cli-service-separation",
+      "content": "The CLI remains a thin adapter over reusable service/database logic so a future MCP server can call MemoryService directly without shelling out or duplicating SQL.",
+      "tags": [
+        "cli",
+        "mcp",
+        "service"
+      ],
+      "source_agent": "codex",
+      "source_path": null,
+      "importance": 5,
+      "content_sha256": "584a0c5f922289b0c4e0b1f57ea6b1d0d7a4eebadea390c2e4ceee111c1ee4e3",
+      "created_at": "2026-08-04T23:04:18.293Z",
+      "updated_at": "2026-08-04T23:04:18.293Z",
+      "last_accessed_at": null,
+      "access_count": 0
+    },
+    {
+      "id": 5,
+      "project": "agent-memory-1",
+      "scope": "project",
+      "kind": "command",
+      "memory_key": "run-tests",
+      "content": "Run the full test suite with .\\.venv\\Scripts\\python.exe -m pytest from C:\\Development\\agent-memory-1. The current Windows checkout reports a non-failing pytest cache warning.",
+      "tags": [
+        "pytest",
+        "venv",
+        "windows"
+      ],
+      "source_agent": "codex",
+      "source_path": null,
+      "importance": 5,
+      "content_sha256": "e22c10cfbdd05ae21fae9374fd8b2ff62a226b84b3a00dd16050d72a57a9654b",
+      "created_at": "2026-08-04T23:04:18.609Z",
+      "updated_at": "2026-08-04T23:04:18.609Z",
+      "last_accessed_at": null,
+      "access_count": 0
+    },
+    {
+      "id": 6,
+      "project": "agent-memory-1",
+      "scope": "project",
+      "kind": "constraint",
+      "memory_key": "local-db-gitignore",
+      "content": "Do not commit the live .agent-memory SQLite database files. Git ignores memory.db, memory.db-shm, memory.db-wal, and .agent-memory/*.tmp; share memory through tracked JSON and Markdown exports instead.",
+      "tags": [
+        "gitignore",
+        "privacy",
+        "sqlite"
+      ],
+      "source_agent": "codex",
+      "source_path": null,
+      "importance": 4,
+      "content_sha256": "a0c7bc332d08c6e9c7bbd1a953f4086a7998c5328f569508bff2a60eeeb4c63b",
+      "created_at": "2026-08-04T23:04:18.768Z",
+      "updated_at": "2026-08-04T23:04:18.768Z",
+      "last_accessed_at": null,
+      "access_count": 0
+    },
+    {
+      "id": 2,
+      "project": "agent-memory-1",
+      "scope": "project",
+      "kind": "decision",
+      "memory_key": "sqlite-canonical-store",
+      "content": "SQLite is the canonical memory store for agent-memory. Markdown files are bootstrap context, optional generated exports, or compatibility artifacts.",
+      "tags": [
+        "architecture",
+        "memory",
+        "sqlite"
+      ],
+      "source_agent": "codex",
+      "source_path": null,
+      "importance": 5,
+      "content_sha256": "3576427d1d33eb922c2458991e5c9b8a27fe75b7864e62d77a9172be94a95f93",
+      "created_at": "2026-08-04T23:04:18.136Z",
+      "updated_at": "2026-08-04T23:04:18.136Z",
+      "last_accessed_at": null,
+      "access_count": 0
+    },
+    {
+      "id": 1,
+      "project": "agent-memory-1",
+      "scope": "project",
+      "kind": "environment",
+      "memory_key": "project-state",
+      "content": "Repository path is C:\\Development\\agent-memory-1. Git is initialized. IntelliJ MCP is configured in .codex/config.toml and resolved the project as module agent-memory-1.",
+      "tags": [
+        "bootstrap",
+        "intellij",
+        "repo"
+      ],
+      "source_agent": "codex",
+      "source_path": null,
+      "importance": 4,
+      "content_sha256": "8e12be4f3b3336ab6f572f9f673892ebf13a5b06f81b9225fb6ad03471bd6bd1",
+      "created_at": "2026-08-04T23:04:17.974Z",
+      "updated_at": "2026-08-04T23:04:17.974Z",
+      "last_accessed_at": null,
+      "access_count": 0
+    },
+    {
+      "id": 7,
+      "project": "agent-memory-1",
+      "scope": "project",
+      "kind": "workflow",
+      "memory_key": "memory-sync-before-checkin",
+      "content": "Before checkin after memory changes, run export-json to docs/agent-memory.snapshot.json and export-md to docs/MEMORY.generated.md. The JSON snapshot recreates local SQLite memory on another computer; the Markdown export is for human review.",
+      "tags": [
+        "export",
+        "git",
+        "snapshot"
+      ],
+      "source_agent": "codex",
+      "source_path": null,
+      "importance": 5,
+      "content_sha256": "dea435dbdf4c58bb9df21b7fbcfa8ab887f198a1ad7478cef0c1f80e7d998faa",
+      "created_at": "2026-08-04T23:04:18.926Z",
+      "updated_at": "2026-08-04T23:04:18.926Z",
+      "last_accessed_at": null,
+      "access_count": 0
+    },
+    {
+      "id": 4,
+      "project": "agent-memory-1",
+      "scope": "project",
+      "kind": "workflow",
+      "memory_key": "bootstrap-docs-before-db",
+      "content": "Before the SQLite database is available, use WORKING_MEMORY.md and docs/BACKLOG.md as temporary durable context. After Phase 8 cutover, write durable memory to SQLite first and keep WORKING_MEMORY.md as legacy fallback only.",
+      "tags": [
+        "bootstrap",
+        "docs"
+      ],
+      "source_agent": "codex",
+      "source_path": null,
+      "importance": 4,
+      "content_sha256": "aa29ba4197720e2b34b5b0c8dadd34e482c9059efe8ece9c6dfe4d2ff9913096",
+      "created_at": "2026-08-04T23:04:18.453Z",
+      "updated_at": "2026-08-04T23:04:18.453Z",
+      "last_accessed_at": null,
+      "access_count": 0
+    }
+  ]
+}

@@ -71,7 +71,7 @@ python -m agent_memory export-md --db <tmp>\memory.db --project demo --output <t
 
 ## Test Results
 
-- Pytest: 45 passed.
+- Pytest: 47 passed after Phase 8 snapshot import/export tests.
 - Acceptance: passed.
 - Search backend in the acceptance run: FTS5.
 - Known local warning: pytest reports a non-failing cache warning for `.pytest_cache` on this Windows checkout.
@@ -87,3 +87,15 @@ python -m agent_memory export-md --db <tmp>\memory.db --project demo --output <t
 ## Next MCP Step
 
 Add an optional MCP adapter that depends on the official Python MCP package through an optional extra such as `agent-memory[mcp]`. The adapter should instantiate `MemoryService`, expose MCP tools like `memory_put`, `memory_search`, and `memory_export_markdown`, and return the same JSON-safe structures already used by the CLI. It should not shell out to the CLI or duplicate SQL.
+## Phase 8 Addendum
+
+Phase 8 added dogfooding support without committing the live SQLite database:
+
+- Added `export-json` for restorable `agent-memory.snapshot.v1` files.
+- Added `import-json` for recreating or updating a local SQLite database from a tracked snapshot.
+- Documented the before-checkin export workflow in `docs/MEMORY_SYNC.md`.
+- Seeded `.agent-memory/memory.db` with keyed project memories.
+- Generated `docs/agent-memory.snapshot.json` for machine restore.
+- Generated `docs/MEMORY.generated.md` for human review.
+
+The live database remains ignored by Git. The tracked JSON snapshot is the portable restore artifact.

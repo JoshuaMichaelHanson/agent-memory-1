@@ -90,11 +90,12 @@ Use this file as the operational checklist until the SQLite memory database is a
 
 ## Phase 8: Self-Hosting Memory Cutover
 
-- [ ] Initialize `.agent-memory/memory.db`.
-- [ ] Insert project state memory with key `project-state`.
-- [ ] Insert architecture decision with key `sqlite-canonical-store`.
-- [ ] Insert workflow memory with key `bootstrap-docs-before-db`.
-- [ ] Insert command memory with key `run-tests`.
-- [ ] Search inserted memories to verify retrieval.
-- [ ] Update `AGENTS.md` to prefer `agent-memory search` before reading `WORKING_MEMORY.md`.
-- [ ] Keep `WORKING_MEMORY.md` only as a legacy bootstrap note or generated export companion.
+- [x] Initialize `.agent-memory/memory.db`.
+- [x] Insert project state memory with key `project-state`.
+- [x] Insert architecture decision with key `sqlite-canonical-store`.
+- [x] Insert workflow memory with key `bootstrap-docs-before-db`.
+- [x] Insert command memory with key `run-tests`.
+- [x] Search inserted memories to verify retrieval.
+- [x] Update `AGENTS.md` to prefer `agent-memory search` before reading `WORKING_MEMORY.md`.
+- [x] Keep `WORKING_MEMORY.md` only as a legacy bootstrap note or generated export companion.
+- [x] Document JSON snapshot export before checkin and restore on another computer.

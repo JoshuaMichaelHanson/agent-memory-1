@@ -128,6 +128,18 @@ def build_parser() -> argparse.ArgumentParser:
     export_parser.add_argument("--limit", type=int, default=None, help="Optional maximum memories to export.")
     export_parser.add_argument("--min-importance", type=int, default=None, help="Minimum importance from 1 to 5.")
     export_parser.set_defaults(handler=handle_export_md)
+    export_json_parser = subparsers.add_parser("export-json", help="Export memories to a restorable JSON snapshot.", formatter_class=JsonHelpFormatter)
+    add_common_options(export_json_parser)
+    export_json_parser.add_argument("--project", required=True, help="Project to export.")
+    export_json_parser.add_argument("--output", type=Path, required=True, help="JSON snapshot output path.")
+    export_json_parser.add_argument("--limit", type=int, default=None, help="Optional maximum memories to export.")
+    export_json_parser.add_argument("--min-importance", type=int, default=None, help="Minimum importance from 1 to 5.")
+    export_json_parser.set_defaults(handler=handle_export_json)
+
+    import_json_parser = subparsers.add_parser("import-json", help="Import memories from a JSON snapshot.", formatter_class=JsonHelpFormatter)
+    add_common_options(import_json_parser)
+    import_json_parser.add_argument("path", type=Path, help="JSON snapshot to import.")
+    import_json_parser.set_defaults(handler=handle_import_json)
     return parser
 
 
@@ -360,6 +372,36 @@ def handle_export_md(args: argparse.Namespace) -> int:
         print(f"Exported {result['count']} memories to {result['output']}")
     return SUCCESS
 
+
+def handle_export_json(args: argparse.Namespace) -> int:
+    config = resolve_config(args.db)
+    result = MemoryService(config.database_path).export_json_snapshot(
+        project=args.project,
+        output_path=args.output,
+        limit=args.limit,
+        min_importance=args.min_importance,
+    )
+    payload = with_context(result, "export-json", config)
+    if args.json:
+        write_json(payload)
+    else:
+        print(f"Exported {result['count']} memories to {result['output']}")
+    return SUCCESS
+
+
+def handle_import_json(args: argparse.Namespace) -> int:
+    config = resolve_config(args.db)
+    result = MemoryService(config.database_path).import_json_snapshot(input_path=args.path)
+    payload = with_context(result, "import-json", config)
+    if args.json:
+        write_json(payload)
+    else:
+        print(
+            "Imported {count} memories from {input}: {inserted} inserted, {updated} updated, {unchanged} unchanged, {unkeyed_inserted} unkeyed inserted".format(
+                **result
+            )
+        )
+    return SUCCESS
 
 def require_delete_confirmation(args: argparse.Namespace) -> None:
     if args.yes:

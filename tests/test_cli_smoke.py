@@ -498,5 +498,57 @@ class CliSmokeTests(unittest.TestCase):
         self.assertIn("<!-- GENERATED FILE. DO NOT EDIT DIRECTLY. -->", text)
         self.assertIn("### database-choice", text)
 
+
+    def test_export_json_and_import_json_restore_keyed_memories(self) -> None:
+        source_db = self.db_path()
+        target_db = self.db_path()
+        snapshot = source_db.parent / "agent-memory.snapshot.json"
+        put_result = self.run_agent_memory(
+            "put",
+            "--json",
+            "--db",
+            str(source_db),
+            "--project",
+            "demo",
+            "--kind",
+            "decision",
+            "--key",
+            "database-choice",
+            "--content",
+            "Use SQLite as canonical memory.",
+            "--importance",
+            "5",
+        )
+        self.assertEqual(put_result.returncode, 0, put_result.stderr)
+
+        export_result = self.run_agent_memory(
+            "export-json",
+            "--json",
+            "--db",
+            str(source_db),
+            "--project",
+            "demo",
+            "--output",
+            str(snapshot),
+        )
+        self.assertEqual(export_result.returncode, 0, export_result.stderr)
+        self.assertEqual(json.loads(export_result.stdout)["count"], 1)
+
+        import_result = self.run_agent_memory("import-json", str(snapshot), "--json", "--db", str(target_db))
+        self.assertEqual(import_result.returncode, 0, import_result.stderr)
+        import_payload = json.loads(import_result.stdout)
+        self.assertEqual(import_payload["inserted"], 1)
+
+        search_result = self.run_agent_memory(
+            "search",
+            "SQLite canonical",
+            "--json",
+            "--db",
+            str(target_db),
+            "--project",
+            "demo",
+        )
+        self.assertEqual(search_result.returncode, 0, search_result.stderr)
+        self.assertEqual(json.loads(search_result.stdout)["count"], 1)
 if __name__ == "__main__":
     unittest.main()

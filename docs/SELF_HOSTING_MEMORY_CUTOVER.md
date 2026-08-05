@@ -74,8 +74,28 @@ Before the SQLite database is usable, use WORKING_MEMORY.md and docs/BACKLOG.md 
 - Content:
 
 ```text
-Do not commit the local .agent-memory SQLite database files. .gitignore excludes memory.db, memory.db-shm, memory.db-wal, and .agent-memory/*.tmp.
+Do not commit the local .agent-memory SQLite database files. .gitignore excludes memory.db, memory.db-shm, memory.db-wal, and .agent-memory/*.tmp. Share memory through docs/agent-memory.snapshot.json and docs/MEMORY.generated.md.
 ```
+
+
+## Git-Tracked Memory Handoff
+
+The live SQLite database remains ignored. Before checkin, export both portable memory artifacts:
+
+```powershell
+python -m agent_memory export-json --db .\.agent-memory\memory.db --project agent-memory-1 --output .\docs\agent-memory.snapshot.json --json
+python -m agent_memory export-md --db .\.agent-memory\memory.db --project agent-memory-1 --output .\docs\MEMORY.generated.md --json
+```
+
+On another computer, recreate the local database from the tracked JSON snapshot:
+
+```powershell
+python -m agent_memory init --db .\.agent-memory\memory.db --json
+python -m agent_memory import-json .\docs\agent-memory.snapshot.json --db .\.agent-memory\memory.db --json
+python -m agent_memory search "canonical memory store" --db .\.agent-memory\memory.db --project agent-memory-1 --limit 5 --json
+```
+
+See `docs/MEMORY_SYNC.md` for the full workflow and limitations.
 
 ## Post-Cutover AGENTS.md Change
 

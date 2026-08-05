@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 import os
 import re
 import sqlite3
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -376,6 +378,86 @@ class MemoryService:
             "count": len(memories),
         }
 
+    def export_json_snapshot(
+        self,
+        *,
+        project: str,
+        output_path: Path,
+        limit: int | None = None,
+        min_importance: int | None = None,
+    ) -> dict[str, Any]:
+        project = validate_project(project)
+        if limit is not None:
+            validate_limit(limit)
+        validate_min_importance(min_importance)
+        memories = select_memories_for_export(
+            self.database_path,
+            project=project,
+            limit=limit,
+            min_importance=min_importance,
+        )
+        snapshot = {
+            "format": "agent-memory.snapshot.v1",
+            "project": project,
+            "source_database": str(self.database_path),
+            "exported_at": current_utc_timestamp(),
+            "memories": [memory.to_dict() for memory in memories],
+        }
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = output_path.with_name(f"{output_path.name}.{os.getpid()}.tmp")
+        try:
+            tmp_path.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            os.replace(tmp_path, output_path)
+        except OSError as exc:
+            try:
+                tmp_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+            raise FileOperationError(f"Could not write JSON snapshot: {output_path}") from exc
+        return {
+            "project": project,
+            "output": str(output_path),
+            "format": snapshot["format"],
+            "count": len(memories),
+        }
+
+    def import_json_snapshot(self, *, input_path: Path) -> dict[str, Any]:
+        try:
+            snapshot = json.loads(input_path.read_text(encoding="utf-8"))
+        except OSError as exc:
+            raise FileOperationError(f"Could not read JSON snapshot: {input_path}") from exc
+        except UnicodeError as exc:
+            raise FileOperationError(f"Snapshot is not valid UTF-8: {input_path}") from exc
+        except json.JSONDecodeError as exc:
+            raise ValidationError(f"Snapshot is not valid JSON: {input_path}") from exc
+
+        if not isinstance(snapshot, dict) or snapshot.get("format") != "agent-memory.snapshot.v1":
+            raise ValidationError("Snapshot format must be agent-memory.snapshot.v1.")
+        memories_payload = snapshot.get("memories")
+        if not isinstance(memories_payload, list):
+            raise ValidationError("Snapshot must contain a memories array.")
+
+        counts = {"inserted": 0, "updated": 0, "unchanged": 0, "unkeyed_inserted": 0}
+        try:
+            initialize_database(self.database_path)
+            with connect_writable(self.database_path) as connection:
+                with connection:
+                    for item in memories_payload:
+                        operation = import_memory_snapshot(connection, item)
+                        counts[operation] += 1
+        except ValidationError:
+            raise
+        except Exception as exc:
+            raise DatabaseError(f"Could not import JSON snapshot into database: {self.database_path}") from exc
+
+        return {
+            "format": snapshot["format"],
+            "project": snapshot.get("project"),
+            "input": str(input_path),
+            "count": len(memories_payload),
+            **counts,
+        }
 
 def validate_memory_input(memory: MemoryInput) -> MemoryInput:
     normalized = memory.normalized()
@@ -637,6 +719,168 @@ def display_path(path: Path, project_root: Path | None) -> str:
             pass
     return str(path)
 
+
+def select_memories_for_export(
+    database_path: Path,
+    *,
+    project: str,
+    limit: int | None = None,
+    min_importance: int | None = None,
+) -> list[Memory]:
+    if not database_path.exists():
+        return []
+    clauses = ["project = ?"]
+    parameters: list[object] = [project]
+    if min_importance is not None:
+        clauses.append("importance >= ?")
+        parameters.append(min_importance)
+    limit_clause = ""
+    if limit is not None:
+        limit_clause = "LIMIT ?"
+        parameters.append(limit)
+    with connect_read_only(database_path) as connection:
+        rows = connection.execute(
+            f"""
+            SELECT * FROM memories
+            WHERE {' AND '.join(clauses)}
+            ORDER BY kind ASC, importance DESC, updated_at DESC, COALESCE(memory_key, printf('%012d', id)) ASC
+            {limit_clause}
+            """,
+            tuple(parameters),
+        ).fetchall()
+        return [memory_from_row(row) for row in rows]
+
+
+def import_memory_snapshot(connection, item: Any) -> str:
+    memory, created_at, updated_at, last_accessed_at, access_count = memory_input_from_snapshot(item)
+    if memory.memory_key is None:
+        insert_memory_snapshot(connection, memory, created_at, updated_at, last_accessed_at, access_count)
+        return "unkeyed_inserted"
+
+    existing = fetch_memory_key_row(connection, memory.project, memory.scope, memory.kind, memory.memory_key)
+    if existing is None:
+        insert_memory_snapshot(connection, memory, created_at, updated_at, last_accessed_at, access_count)
+        return "inserted"
+    if memory_matches_existing(existing, memory):
+        return "unchanged"
+
+    connection.execute(
+        """
+        UPDATE memories
+        SET content = ?,
+            tags = ?,
+            source_agent = ?,
+            source_path = ?,
+            importance = ?,
+            content_sha256 = ?,
+            updated_at = ?,
+            last_accessed_at = ?,
+            access_count = ?
+        WHERE id = ?
+        """,
+        (
+            memory.content,
+            serialize_tags(memory.tags),
+            memory.source_agent,
+            memory.source_path,
+            memory.importance,
+            content_sha256(memory.content),
+            updated_at,
+            last_accessed_at,
+            access_count,
+            int(existing["id"]),
+        ),
+    )
+    return "updated"
+
+
+def memory_input_from_snapshot(item: Any) -> tuple[MemoryInput, str, str, str | None, int]:
+    if not isinstance(item, dict):
+        raise ValidationError("Each snapshot memory must be an object.")
+    tags = item.get("tags", [])
+    if not isinstance(tags, list):
+        raise ValidationError("Snapshot memory tags must be an array.")
+    try:
+        importance = int(item.get("importance", 3))
+        access_count = int(item.get("access_count", 0) or 0)
+    except (TypeError, ValueError) as exc:
+        raise ValidationError("Snapshot memory importance and access_count must be integers.") from exc
+
+    memory = validate_memory_input(
+        MemoryInput(
+            project=str(item.get("project", "")),
+            scope=str(item.get("scope", "project")),
+            kind=str(item.get("kind", "note")),
+            memory_key=item.get("memory_key"),
+            content=str(item.get("content", "")),
+            tags=tuple(str(tag) for tag in tags),
+            source_agent=str(item.get("source_agent", "unknown")),
+            source_path=item.get("source_path"),
+            importance=importance,
+        )
+    )
+    expected_hash = item.get("content_sha256")
+    if expected_hash is not None and str(expected_hash) != content_sha256(memory.content):
+        raise ValidationError(f"Snapshot memory hash mismatch for {memory.kind}/{memory.memory_key or 'unkeyed'}.")
+
+    now = current_utc_timestamp()
+    created_at = str(item.get("created_at") or now)
+    updated_at = str(item.get("updated_at") or created_at)
+    last_accessed_raw = item.get("last_accessed_at")
+    last_accessed_at = str(last_accessed_raw) if last_accessed_raw else None
+    return memory, created_at, updated_at, last_accessed_at, max(access_count, 0)
+
+
+def insert_memory_snapshot(
+    connection,
+    memory: MemoryInput,
+    created_at: str,
+    updated_at: str,
+    last_accessed_at: str | None,
+    access_count: int,
+) -> int:
+    cursor = connection.execute(
+        """
+        INSERT INTO memories(
+            project,
+            scope,
+            kind,
+            memory_key,
+            content,
+            tags,
+            source_agent,
+            source_path,
+            importance,
+            content_sha256,
+            created_at,
+            updated_at,
+            last_accessed_at,
+            access_count
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            memory.project,
+            memory.scope,
+            memory.kind,
+            memory.memory_key,
+            memory.content,
+            serialize_tags(memory.tags),
+            memory.source_agent,
+            memory.source_path,
+            memory.importance,
+            content_sha256(memory.content),
+            created_at,
+            updated_at,
+            last_accessed_at,
+            access_count,
+        ),
+    )
+    return int(cursor.lastrowid)
+
+
+def current_utc_timestamp() -> str:
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 def memory_matches_existing(row, memory: MemoryInput) -> bool:
     return (

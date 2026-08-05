@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 import time
 import unittest
@@ -322,5 +323,39 @@ class ServicePutTests(unittest.TestCase):
         self.assertIn("SQLite is canonical.", text)
         self.assertNotIn("Low value note.", text)
 
+
+    def test_json_snapshot_export_and_import_are_idempotent_for_keyed_memories(self) -> None:
+        source_path = self.db_path()
+        source = MemoryService(source_path)
+        source.put(
+            MemoryInput(
+                project="demo",
+                kind="decision",
+                memory_key="database-choice",
+                content="Use SQLite as canonical memory.",
+                tags=("sqlite", "architecture"),
+                importance=5,
+                source_agent="codex",
+            )
+        )
+        source.put(MemoryInput(project="other", kind="note", memory_key="other", content="Do not export."))
+        snapshot = source_path.parent / "agent-memory.snapshot.json"
+
+        export_result = source.export_json_snapshot(project="demo", output_path=snapshot)
+        payload = json.loads(snapshot.read_text(encoding="utf-8"))
+        target_path = self.db_path()
+        target = MemoryService(target_path)
+        first_import = target.import_json_snapshot(input_path=snapshot)
+        second_import = target.import_json_snapshot(input_path=snapshot)
+        restored = target.get_by_key(project="demo", scope="project", kind="decision", memory_key="database-choice", touch=False)
+
+        self.assertEqual(export_result["count"], 1)
+        self.assertEqual(payload["format"], "agent-memory.snapshot.v1")
+        self.assertEqual(first_import["inserted"], 1)
+        self.assertEqual(second_import["unchanged"], 1)
+        self.assertIsNotNone(restored)
+        assert restored is not None
+        self.assertEqual(restored.content, "Use SQLite as canonical memory.")
+        self.assertEqual(restored.tags, ("architecture", "sqlite"))
 if __name__ == "__main__":
     unittest.main()

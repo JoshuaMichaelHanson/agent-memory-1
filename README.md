@@ -23,8 +23,10 @@ The core version 1 CLI commands are implemented:
 - `delete`
 - `mirror-file`
 - `export-md`
+- `export-json`
+- `import-json`
 
-Phase 7 focuses on documentation, examples, acceptance verification, and the implementation report.
+Phase 8 adds self-hosting memory, portable JSON snapshot export/import, and tracked memory review artifacts.
 
 ## Installation
 
@@ -186,10 +188,26 @@ agent-memory mirror-file .\AGENTS.md --project demo --agent codex --json
 
 ### `export-md`
 
-Writes a generated Markdown export atomically.
+Writes a generated Markdown export atomically for human review.
 
 ```powershell
-agent-memory export-md --project demo --output .\.agent-memory\MEMORY.generated.md --json
+agent-memory export-md --project demo --output .\docs\MEMORY.generated.md --json
+```
+
+### `export-json`
+
+Writes a machine-restorable JSON snapshot. Use this before checkin when sharing memory through Git.
+
+```powershell
+agent-memory export-json --project demo --output .\docs\agent-memory.snapshot.json --json
+```
+
+### `import-json`
+
+Imports a JSON snapshot into the configured SQLite database. Keyed memories are idempotent on import.
+
+```powershell
+agent-memory import-json .\docs\agent-memory.snapshot.json --json
 ```
 
 ## JSON Contract
@@ -235,6 +253,8 @@ Initialization attempts to create an FTS5 external-content table and synchroniza
 
 `export-md` writes generated Markdown for human review. The generated file starts with a warning and should not be treated as canonical.
 
+`export-json` writes the portable restore artifact. `import-json` recreates or updates a local SQLite database from that artifact. Keyed memories are idempotent; unkeyed memories import as new rows.
+
 ## Security and Privacy
 
 Do not store passwords, API keys, access tokens, private keys, credentialed connection strings, or protected personal data.
@@ -270,6 +290,24 @@ A future optional dependency can be added as:
 [project.optional-dependencies]
 mcp = ["mcp>=1,<2"]
 ```
+
+## Sharing Memory Through Git
+
+Do not commit the live SQLite database. Before checkin, export both a restorable JSON snapshot and a human-readable Markdown file:
+
+```powershell
+python -m agent_memory export-json --project agent-memory-1 --output .\docs\agent-memory.snapshot.json --json
+python -m agent_memory export-md --project agent-memory-1 --output .\docs\MEMORY.generated.md --json
+```
+
+On another computer, restore the ignored local database with:
+
+```powershell
+python -m agent_memory init --db .\.agent-memory\memory.db --json
+python -m agent_memory import-json .\docs\agent-memory.snapshot.json --db .\.agent-memory\memory.db --json
+```
+
+See `docs/MEMORY_SYNC.md` for the full workflow.
 
 ## Development
 
