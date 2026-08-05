@@ -144,12 +144,14 @@ def build_parser() -> argparse.ArgumentParser:
     export_json_parser.add_argument("--output", type=Path, required=True, help="JSON snapshot output path.")
     export_json_parser.add_argument("--limit", type=int, default=None, help="Optional maximum memories to export.")
     export_json_parser.add_argument("--min-importance", type=int, default=None, help="Minimum importance from 1 to 5.")
+    export_json_parser.add_argument("--verify", action="store_true", help="Verify the written snapshot by restoring it into a temporary database.")
     export_json_parser.set_defaults(handler=handle_export_json)
 
     import_json_parser = subparsers.add_parser("import-json", help="Import memories from a JSON snapshot.", formatter_class=JsonHelpFormatter)
     add_common_options(import_json_parser)
     import_json_parser.add_argument("path", type=Path, help="JSON snapshot to import.")
     import_json_parser.add_argument("--allow-sensitive", action="store_true", help="Allow snapshot content that matches best-effort sensitive-value patterns.")
+    import_json_parser.add_argument("--dry-run", action="store_true", help="Validate and classify the import without mutating the database.")
     import_json_parser.set_defaults(handler=handle_import_json)
     return parser
 
@@ -410,24 +412,28 @@ def handle_export_json(args: argparse.Namespace) -> int:
         output_path=args.output,
         limit=args.limit,
         min_importance=args.min_importance,
+        verify=args.verify,
     )
     payload = with_context(result, "export-json", config)
     if args.json:
         write_json(payload)
     else:
-        print(f"Exported {result['count']} memories to {result['output']}")
+        verified = " and verified" if result.get("verification", {}).get("ok") else ""
+        print(f"Exported {result['count']} memories to {result['output']}{verified}")
     return SUCCESS
 
 
 def handle_import_json(args: argparse.Namespace) -> int:
     config = resolve_config(args.db)
-    result = MemoryService(config.database_path).import_json_snapshot(input_path=args.path, allow_sensitive=args.allow_sensitive)
+    result = MemoryService(config.database_path).import_json_snapshot(input_path=args.path, allow_sensitive=args.allow_sensitive, dry_run=args.dry_run)
     payload = with_context(result, "import-json", config)
     if args.json:
         write_json(payload)
     else:
+        action = "Dry-run import" if result.get("dry_run") else "Imported"
         print(
-            "Imported {count} memories from {input}: {inserted} inserted, {updated} updated, {unchanged} unchanged, {unkeyed_inserted} unkeyed inserted".format(
+            "{action} {count} memories from {input}: {inserted} inserted, {updated} updated, {unchanged} unchanged, {unkeyed_inserted} unkeyed inserted".format(
+                action=action,
                 **result
             )
         )

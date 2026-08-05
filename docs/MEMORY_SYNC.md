@@ -17,6 +17,7 @@ python -m agent_memory export-json `
   --db .\.agent-memory\memory.db `
   --project agent-memory-1 `
   --output .\docs\agent-memory.snapshot.json `
+  --verify `
   --json
 
 python -m agent_memory export-md `
@@ -26,13 +27,18 @@ python -m agent_memory export-md `
   --json
 ```
 
-Review both tracked exports before committing. The JSON snapshot is useful for rebuilding a database. The Markdown export is useful for code review and quick reading.
+Review both tracked exports before committing. The JSON snapshot is useful for rebuilding a database, and `--verify` confirms that it restores into a temporary database. The Markdown export is useful for code review and quick reading.
 
 ## Restore on Another Computer
 
-After cloning the repository and setting up the Python environment, restore the local database from the tracked JSON snapshot:
+After cloning the repository and setting up the Python environment, dry-run the tracked snapshot first, then restore the local database:
 
 ```powershell
+python -m agent_memory import-json .\docs\agent-memory.snapshot.json `
+  --db .\.agent-memory\memory.db `
+  --dry-run `
+  --json
+
 python -m agent_memory init --db .\.agent-memory\memory.db --json
 
 python -m agent_memory import-json .\docs\agent-memory.snapshot.json `
@@ -49,6 +55,7 @@ python -m agent_memory search "canonical memory store" `
 POSIX shell:
 
 ```sh
+python -m agent_memory import-json ./docs/agent-memory.snapshot.json --db ./.agent-memory/memory.db --dry-run --json
 python -m agent_memory init --db ./.agent-memory/memory.db --json
 python -m agent_memory import-json ./docs/agent-memory.snapshot.json --db ./.agent-memory/memory.db --json
 python -m agent_memory search "canonical memory store" --db ./.agent-memory/memory.db --project agent-memory-1 --limit 5 --json
@@ -60,7 +67,9 @@ python -m agent_memory search "canonical memory store" --db ./.agent-memory/memo
 - Snapshots contain semantic `memories` and exact `mirrored_files` revisions.
 - Keyed memories are idempotent on import because they upsert by `project + scope + kind + memory_key`.
 - Mirrored file revisions are idempotent on import by `project + path + content_sha256`.
-- Unkeyed memories are imported as new rows each time. Shared durable memories should use stable keys.
+- `import-json --dry-run` validates and classifies the restore without creating or mutating the target database.
+- `export-json --verify` writes the snapshot, restores it into a temporary database beside the snapshot, reports restore counts, and removes the temporary database.
+- Unkeyed memories are imported as new rows each time; validation reports a warning when they are present. Shared durable memories should use stable keys.
 - Import validates content hashes when a snapshot includes them.
 - Do not put secrets, credentials, tokens, private keys, or protected personal data in memory or exports.
 

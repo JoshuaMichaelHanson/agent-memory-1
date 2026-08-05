@@ -3,9 +3,19 @@
 
 # Agent Memory: agent-memory-1
 
-Generated: 2026-08-05T04:12:22Z
+Generated: 2026-08-05T06:06:34Z
 
 ## Architecture
+
+### backup-restore-polish
+
+- ID: 12
+- Importance: 5
+- Scope: project
+- Updated: 2026-08-05T05:24:30.839Z
+- Tags: phase-12, restore, snapshot
+
+Phase 12 is complete. import-json supports --dry-run, snapshot validation reports all detected item-level problems before mutation, export-json supports --verify by restoring the written snapshot into a temporary SQLite database, and import validation warns when unkeyed memories are present because repeated real imports create new rows.
 
 ### snapshot-mirrored-files
 
@@ -106,10 +116,10 @@ Phase 9 is complete. The service layer enforces best-effort secret guardrails fo
 - ID: 8
 - Importance: 5
 - Scope: project
-- Updated: 2026-08-05T01:22:06.861Z
+- Updated: 2026-08-05T06:06:27.872Z
 - Tags: production-readiness, roadmap, workflow
 
-Production readiness work should proceed in this order: Phase 9 secret guardrails, Phase 10 doctor command, Phase 11 complete snapshot coverage, Phase 12 backup/restore polish, Phase 13 production usage guide, Phase 14 schema migration framework after real usage identifies needed schema changes, and Phase 15 CI/release validation last because GitHub/sharing is not yet the immediate goal. MCP remains optional future-state for personal development.
+Production readiness work after Phase 12 should proceed in this order: Phase 13 agent onboarding instructions, Phase 14 production usage guide, Phase 15 cross-project/global memory sharing, Phase 16 Codex and Claude skill templates, Phase 17 schema migration framework after real usage identifies needed schema changes, and Phase 18 CI/release validation last because GitHub/sharing is not yet the immediate goal. MCP remains optional future-state for personal development.
 
 ### memory-sync-before-checkin
 

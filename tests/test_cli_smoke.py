@@ -737,5 +737,82 @@ class CliSmokeTests(unittest.TestCase):
         second_payload = json.loads(second_import.stdout)
         self.assertEqual(first_payload["mirrored_files_inserted"], 1)
         self.assertEqual(second_payload["mirrored_files_unchanged"], 1)
+
+    def test_import_json_dry_run_json_does_not_create_database(self) -> None:
+        source_db = self.db_path()
+        target_db = self.db_path()
+        snapshot = source_db.parent / "agent-memory.snapshot.json"
+        put_result = self.run_agent_memory(
+            "put",
+            "--json",
+            "--db",
+            str(source_db),
+            "--project",
+            "demo",
+            "--kind",
+            "decision",
+            "--key",
+            "database-choice",
+            "--content",
+            "Use SQLite.",
+        )
+        self.assertEqual(put_result.returncode, 0, put_result.stderr)
+        export_result = self.run_agent_memory(
+            "export-json",
+            "--json",
+            "--db",
+            str(source_db),
+            "--project",
+            "demo",
+            "--output",
+            str(snapshot),
+        )
+        self.assertEqual(export_result.returncode, 0, export_result.stderr)
+
+        dry_run = self.run_agent_memory("import-json", str(snapshot), "--json", "--db", str(target_db), "--dry-run")
+
+        self.assertEqual(dry_run.returncode, 0, dry_run.stderr)
+        payload = json.loads(dry_run.stdout)
+        self.assertTrue(payload["dry_run"])
+        self.assertEqual(payload["inserted"], 1)
+        self.assertEqual(payload["validation"]["error_count"], 0)
+        self.assertFalse(target_db.exists())
+
+    def test_export_json_verify_json_reports_restore_counts(self) -> None:
+        source_db = self.db_path()
+        snapshot = source_db.parent / "agent-memory.snapshot.json"
+        put_result = self.run_agent_memory(
+            "put",
+            "--json",
+            "--db",
+            str(source_db),
+            "--project",
+            "demo",
+            "--kind",
+            "decision",
+            "--key",
+            "database-choice",
+            "--content",
+            "Use SQLite.",
+        )
+        self.assertEqual(put_result.returncode, 0, put_result.stderr)
+
+        export_result = self.run_agent_memory(
+            "export-json",
+            "--json",
+            "--db",
+            str(source_db),
+            "--project",
+            "demo",
+            "--output",
+            str(snapshot),
+            "--verify",
+        )
+
+        self.assertEqual(export_result.returncode, 0, export_result.stderr)
+        payload = json.loads(export_result.stdout)
+        self.assertTrue(payload["verification"]["ok"])
+        self.assertEqual(payload["verification"]["memory_count"], 1)
+        self.assertEqual(payload["verification"]["inserted"], 1)
 if __name__ == "__main__":
     unittest.main()
