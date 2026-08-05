@@ -737,5 +737,118 @@ class CliSmokeTests(unittest.TestCase):
         second_payload = json.loads(second_import.stdout)
         self.assertEqual(first_payload["mirrored_files_inserted"], 1)
         self.assertEqual(second_payload["mirrored_files_unchanged"], 1)
+
+    def test_import_json_dry_run_json_does_not_create_database(self) -> None:
+        source_db = self.db_path()
+        target_db = self.db_path()
+        snapshot = source_db.parent / "agent-memory.snapshot.json"
+        put_result = self.run_agent_memory(
+            "put",
+            "--json",
+            "--db",
+            str(source_db),
+            "--project",
+            "demo",
+            "--kind",
+            "decision",
+            "--key",
+            "database-choice",
+            "--content",
+            "Use SQLite.",
+        )
+        self.assertEqual(put_result.returncode, 0, put_result.stderr)
+        export_result = self.run_agent_memory(
+            "export-json",
+            "--json",
+            "--db",
+            str(source_db),
+            "--project",
+            "demo",
+            "--output",
+            str(snapshot),
+        )
+        self.assertEqual(export_result.returncode, 0, export_result.stderr)
+
+        dry_run = self.run_agent_memory("import-json", str(snapshot), "--json", "--db", str(target_db), "--dry-run")
+
+        self.assertEqual(dry_run.returncode, 0, dry_run.stderr)
+        payload = json.loads(dry_run.stdout)
+        self.assertTrue(payload["dry_run"])
+        self.assertEqual(payload["inserted"], 1)
+        self.assertEqual(payload["validation"]["error_count"], 0)
+        self.assertFalse(target_db.exists())
+
+    def test_export_json_verify_json_reports_restore_counts(self) -> None:
+        source_db = self.db_path()
+        snapshot = source_db.parent / "agent-memory.snapshot.json"
+        put_result = self.run_agent_memory(
+            "put",
+            "--json",
+            "--db",
+            str(source_db),
+            "--project",
+            "demo",
+            "--kind",
+            "decision",
+            "--key",
+            "database-choice",
+            "--content",
+            "Use SQLite.",
+        )
+        self.assertEqual(put_result.returncode, 0, put_result.stderr)
+
+        export_result = self.run_agent_memory(
+            "export-json",
+            "--json",
+            "--db",
+            str(source_db),
+            "--project",
+            "demo",
+            "--output",
+            str(snapshot),
+            "--verify",
+        )
+
+        self.assertEqual(export_result.returncode, 0, export_result.stderr)
+        payload = json.loads(export_result.stdout)
+        self.assertTrue(payload["verification"]["ok"])
+        self.assertEqual(payload["verification"]["memory_count"], 1)
+        self.assertEqual(payload["verification"]["inserted"], 1)
+    def test_instructions_json_and_markdown_output(self) -> None:
+        markdown = self.run_agent_memory("instructions", "--project", "demo")
+        self.assertEqual(markdown.returncode, 0, markdown.stderr)
+        self.assertIn("<!-- BEGIN agent-memory instructions -->", markdown.stdout)
+        self.assertIn("Project name: `demo`", markdown.stdout)
+        self.assertIn("agent-memory search", markdown.stdout)
+        self.assertIn("agent-memory --help", markdown.stdout)
+
+        result = self.run_agent_memory("instructions", "--json", "--project", "demo")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["command"], "instructions")
+        self.assertEqual(payload["format"], "agent-memory.instructions.v1")
+        self.assertEqual(payload["project"], "demo")
+        self.assertIn("section", payload)
+        self.assertIn("search", {command["name"] for command in payload["commands"]})
+
+    def test_install_instructions_json_is_idempotent(self) -> None:
+        output = self.db_path().parent / "AGENTS.md"
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text("# Agent Notes\n\nKeep this line.\n", encoding="utf-8")
+
+        first = self.run_agent_memory("install-instructions", "--json", "--project", "demo", "--output", str(output))
+        second = self.run_agent_memory("install-instructions", "--json", "--project", "demo", "--output", str(output))
+
+        self.assertEqual(first.returncode, 0, first.stderr)
+        self.assertEqual(second.returncode, 0, second.stderr)
+        first_payload = json.loads(first.stdout)
+        second_payload = json.loads(second.stdout)
+        text = output.read_text(encoding="utf-8")
+        self.assertEqual(first_payload["operation"], "inserted")
+        self.assertEqual(second_payload["operation"], "unchanged")
+        self.assertEqual(text.count("<!-- BEGIN agent-memory instructions -->"), 1)
+        self.assertIn("Keep this line.", text)
+        self.assertIn("Project name: `demo`", text)
 if __name__ == "__main__":
     unittest.main()

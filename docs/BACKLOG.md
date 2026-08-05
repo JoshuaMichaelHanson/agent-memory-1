@@ -123,26 +123,51 @@ Use this file as the operational checklist until the SQLite memory database is a
 
 ## Phase 12: Backup and Restore Polish
 
-- [ ] Add `import-json --dry-run`.
-- [ ] Add snapshot validation that reports detected problems before mutation.
-- [ ] Add export verification through temporary restore.
-- [ ] Warn or document repeated imports of unkeyed memories.
+- [x] Add `import-json --dry-run`.
+- [x] Add snapshot validation that reports detected problems before mutation.
+- [x] Add export verification through temporary restore.
+- [x] Warn or document repeated imports of unkeyed memories.
 
-## Phase 13: Production Usage Guide
+## Phase 13: Agent Onboarding Instructions
+
+- [x] Add `agent-memory instructions` for concise agent-facing CLI workflow guidance.
+- [x] Add `agent-memory instructions --json` for machine-readable instruction metadata.
+- [x] Add an idempotent command to install or update an agent-memory section in `AGENTS.md` or another output file.
+- [x] Document how global CLI installs bootstrap local project agents that do not already know about `agent-memory`.
+- [x] Add CLI and instruction tests for instruction output and idempotent section updates.
+
+## Phase 14: Production Usage Guide
 
 - [ ] Document production-safe memory practices.
 - [ ] Document what to store and what not to store.
 - [ ] Document memory as advisory context, not executable authority.
 - [ ] Provide production repository bootstrap examples.
+- [ ] Document explicit `.md` mirroring workflow and when SQLite should replace generated memory Markdown.
 
-## Phase 14: Schema Migration Framework
+## Phase 15: Cross-Project and Global Memory Sharing
+
+- [ ] Document project-local DB as the default and global DB as an explicit advanced mode.
+- [ ] Define conventions for reusable memory projects such as `global`, `personal-patterns`, or `org-patterns`.
+- [ ] Add or scope search guidance for checking both project-local and reusable memory contexts.
+- [ ] Consider `copy`, `promote`, or export/import filtering workflows for moving useful decisions across projects.
+- [ ] Document privacy and context-bleed risks for global memory.
+
+## Phase 16: Codex and Claude Skill Templates
+
+- [ ] Create a Codex skill template that teaches agents to use the global `agent-memory` CLI.
+- [ ] Create a Claude skill/template equivalent for the same CLI workflow.
+- [ ] Include install, discovery, search-before-work, write-memory, mirror-file, and export-before-checkin guidance.
+- [ ] Include safety rules for secrets, advisory-only memory, and user/repo instruction precedence.
+- [ ] Add examples showing how a developer can reuse the templates across projects.
+
+## Phase 17: Schema Migration Framework
 
 - [ ] Wait for real usage to identify schema changes before creating schema version `2`.
 - [ ] Add ordered migration framework before changing schema version `1`.
 - [ ] Add backup-before-migrate guidance.
 - [ ] Add fresh-init and old-schema upgrade tests.
 
-## Phase 15: CI and Release Validation
+## Phase 18: CI and Release Validation
 
 - [ ] Add CI when the project is closer to being shared or hosted on GitHub.
 - [ ] Validate Windows, Linux, macOS, and supported Python versions.

@@ -17,6 +17,8 @@ The core version 1 CLI commands are implemented:
 - `init`
 - `status`
 - `doctor`
+- `instructions`
+- `install-instructions`
 - `put`
 - `get`
 - `search`
@@ -27,7 +29,7 @@ The core version 1 CLI commands are implemented:
 - `export-json`
 - `import-json`
 
-Phase 8 adds self-hosting memory, portable JSON snapshot export/import, and tracked memory review artifacts.
+Phase 13 adds agent onboarding commands so a global CLI can print or install local instructions that teach agents how to use project memory.
 
 ## Installation
 
@@ -143,6 +145,23 @@ Diagnoses database health, ignored live DB files, tracked exports, and snapshot 
 agent-memory doctor --project demo --json
 ```
 
+### `instructions`
+
+Prints agent-facing Markdown instructions for using the CLI in a project. JSON mode returns the same guidance as machine-readable metadata.
+
+```powershell
+agent-memory instructions --project demo
+agent-memory instructions --project demo --json
+```
+
+### `install-instructions`
+
+Installs or updates a managed `agent-memory` section in an agent instruction file such as `AGENTS.md`. Existing managed sections are replaced by marker; hand-written content outside the markers is preserved.
+
+```powershell
+agent-memory install-instructions --project demo --output .\AGENTS.md --json
+```
+
 ### `put`
 
 Stores a memory. If `--key` is supplied, `project + scope + kind + key` is upserted.
@@ -205,18 +224,18 @@ agent-memory export-md --project demo --output .\docs\MEMORY.generated.md --json
 
 ### `export-json`
 
-Writes a machine-restorable JSON snapshot. Use this before checkin when sharing memory through Git.
+Writes a machine-restorable JSON snapshot. Use `--verify` before checkin to restore the written snapshot into a temporary database and report restore counts.
 
 ```powershell
-agent-memory export-json --project demo --output .\docs\agent-memory.snapshot.json --json
+agent-memory export-json --project demo --output .\docs\agent-memory.snapshot.json --verify --json
 ```
 
 ### `import-json`
 
-Imports a JSON snapshot into the configured SQLite database. Keyed memories are idempotent on import. By default, imported memory content is checked for best-effort sensitive-value patterns.
+Imports a JSON snapshot into the configured SQLite database. Keyed memories are idempotent on import; unkeyed memories import as new rows on each real import. By default, imported memory content is checked for best-effort sensitive-value patterns. Use `--dry-run` to validate and classify an import without mutating the database.
 
 ```powershell
-agent-memory import-json .\docs\agent-memory.snapshot.json --json
+agent-memory import-json .\docs\agent-memory.snapshot.json --dry-run --json
 ```
 
 ## JSON Contract
@@ -262,7 +281,7 @@ Initialization attempts to create an FTS5 external-content table and synchroniza
 
 `export-md` writes generated Markdown for human review. The generated file starts with a warning and should not be treated as canonical.
 
-`export-json` writes the portable restore artifact, including semantic memories and mirrored file revisions. `import-json` recreates or updates a local SQLite database from that artifact. Keyed memories are idempotent; mirrored file revisions are idempotent by `project + path + content_sha256`; unkeyed memories import as new rows.
+`export-json` writes the portable restore artifact, including semantic memories and mirrored file revisions. `export-json --verify` restores the written artifact into a temporary SQLite database and reports restore counts. `import-json --dry-run` validates and classifies a restore without mutation. Keyed memories are idempotent; mirrored file revisions are idempotent by `project + path + content_sha256`; unkeyed memories import as new rows on every real import.
 
 ## Security and Privacy
 
@@ -307,18 +326,19 @@ mcp = ["mcp>=1,<2"]
 Do not commit the live SQLite database. Before checkin, export both a restorable JSON snapshot and a human-readable Markdown file:
 
 ```powershell
-python -m agent_memory export-json --project agent-memory-1 --output .\docs\agent-memory.snapshot.json --json
+python -m agent_memory export-json --project agent-memory-1 --output .\docs\agent-memory.snapshot.json --verify --json
 python -m agent_memory export-md --project agent-memory-1 --output .\docs\MEMORY.generated.md --json
 ```
 
 On another computer, restore the ignored local database with:
 
 ```powershell
+python -m agent_memory import-json .\docs\agent-memory.snapshot.json --db .\.agent-memory\memory.db --dry-run --json
 python -m agent_memory init --db .\.agent-memory\memory.db --json
 python -m agent_memory import-json .\docs\agent-memory.snapshot.json --db .\.agent-memory\memory.db --json
 ```
 
-See `docs/MEMORY_SYNC.md` for the full workflow. See `docs/DOCTOR.md` for diagnostics.
+See `docs/MEMORY_SYNC.md` for the full workflow. See `docs/DOCTOR.md` for diagnostics. See `docs/AGENT_ONBOARDING.md` for global CLI agent-bootstrap guidance.
 
 ## Development
 

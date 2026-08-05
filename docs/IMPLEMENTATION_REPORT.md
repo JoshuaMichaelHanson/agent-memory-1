@@ -87,6 +87,7 @@ python -m agent_memory export-md --db <tmp>\memory.db --project demo --output <t
 ## Next MCP Step
 
 Add an optional MCP adapter that depends on the official Python MCP package through an optional extra such as `agent-memory[mcp]`. The adapter should instantiate `MemoryService`, expose MCP tools like `memory_put`, `memory_search`, and `memory_export_markdown`, and return the same JSON-safe structures already used by the CLI. It should not shell out to the CLI or duplicate SQL.
+
 ## Phase 8 Addendum
 
 Phase 8 added dogfooding support without committing the live SQLite database:
@@ -102,16 +103,24 @@ The live database remains ignored by Git. The tracked JSON snapshot is the porta
 
 ## Production Readiness Roadmap
 
-Next work is documented in docs/PRODUCTION_READINESS_ROADMAP.md. The order is secret guardrails, doctor command, complete snapshot coverage, backup/restore polish, production usage guide, schema migration framework, and CI/release validation. MCP remains future-state and optional.
+Next work is documented in docs/PRODUCTION_READINESS_ROADMAP.md. After Phase 12, the order is agent onboarding instructions, production usage guide, cross-project/global memory sharing, Codex and Claude skill templates, schema migration framework, and CI/release validation. MCP remains future-state and optional.
 
 ## Phase 9 Addendum
 
-Phase 9 added best-effort secret guardrails for put, mirror-file, and import-json. Sensitive-looking content is blocked by default with a validation error, and --allow-sensitive is available for intentional local-only storage. Scanner details are documented in docs/SECRET_GUARDRAILS.md.
+Phase 9 added best-effort secret guardrails for `put`, `mirror-file`, and `import-json`. Sensitive-looking content is blocked by default with a validation error, and `--allow-sensitive` is available for intentional local-only storage. Scanner details are documented in `docs/SECRET_GUARDRAILS.md`.
 
 ## Phase 10 Addendum
 
-Phase 10 added gent-memory doctor, a diagnostic command that reports setup health separately from command execution. It checks database path resolution, existence, schema version, WAL, search backend, read/write viability, live DB ignore policy, tracked exports, and JSON snapshot restore. Details are documented in docs/DOCTOR.md.
+Phase 10 added `agent-memory doctor`, a diagnostic command that reports setup health separately from command execution. It checks database path resolution, existence, schema version, WAL, search backend, read/write viability, live DB ignore policy, tracked exports, and JSON snapshot restore. Details are documented in `docs/DOCTOR.md`.
 
 ## Phase 11 Addendum
 
-Phase 11 completed JSON snapshot coverage for mirrored file revisions. xport-json now writes a mirrored_files array, and import-json restores those revisions idempotently by project + path + content_sha256. Snapshot workflow details are documented in docs/MEMORY_SYNC.md.
+Phase 11 completed JSON snapshot coverage for mirrored file revisions. `export-json` now writes a `mirrored_files` array, and `import-json` restores those revisions idempotently by `project + path + content_sha256`. Snapshot workflow details are documented in `docs/MEMORY_SYNC.md`.
+
+## Phase 12 Addendum
+
+Phase 12 polished backup and restore workflows. `import-json --dry-run` validates snapshots and classifies expected inserts, updates, unchanged rows, unkeyed inserts, and mirrored file imports without mutating the target database. Snapshot validation reports all detected item-level problems before mutation. `export-json --verify` restores the written snapshot into a temporary SQLite database and reports restore counts. Unkeyed memories now produce validation warnings because repeated real imports create new rows. The roadmap was also updated so the next phases are agent onboarding instructions, production usage guide, cross-project/global memory sharing, Codex and Claude skill templates, schema migrations, and CI/release validation.
+
+## Phase 13 Addendum
+
+Phase 13 added agent onboarding commands for global CLI discovery. `agent-memory instructions` prints concise agent-facing Markdown, `agent-memory instructions --json` returns machine-readable instruction metadata, and `agent-memory install-instructions` installs or replaces a managed section in files such as `AGENTS.md` while preserving hand-written content outside the markers. Details are documented in `docs/AGENT_ONBOARDING.md`.

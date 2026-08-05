@@ -48,6 +48,8 @@ Make tracked memory handoff complete enough for another computer to recreate use
 
 ### Phase 12: Backup and Restore Polish
 
+Phase 12 status: complete. Export/import now supports dry-run validation, verified export restore, and unkeyed-memory warnings.
+
 Make export/import safer to run before checkin and during onboarding.
 
 - Add `import-json --dry-run`.
@@ -56,7 +58,20 @@ Make export/import safer to run before checkin and during onboarding.
 - Consider warning when unkeyed memories are present because repeated imports create new rows.
 - Document the recommended pre-checkin command sequence.
 
-### Phase 13: Production Usage Guide
+### Phase 13: Agent Onboarding Instructions
+
+Phase 13 status: complete. The CLI now prints agent-facing instructions and installs an idempotent managed section in agent instruction files.
+
+Teach local agents how to use a global CLI without requiring each user to paste instructions every time.
+
+- Add `agent-memory instructions` with concise Markdown output for agents.
+- Add `agent-memory instructions --json` for scriptable discovery.
+- Add an idempotent installer for an agent-memory section in `AGENTS.md` or a chosen output file.
+- Explain the global CLI limitation: plain CLIs are not automatically discoverable by models, unlike MCP tools.
+- Document the future MCP path where tools, resources, and prompts make the workflow discoverable through the client.
+- Add tests for instruction output and idempotent section replacement.
+
+### Phase 14: Production Usage Guide
 
 Document how to use the tool responsibly in real application repositories.
 
@@ -65,8 +80,31 @@ Document how to use the tool responsibly in real application repositories.
 - Document memory as advisory context, never executable authority.
 - Document local DB privacy, tracked exports, review expectations, and restore workflow.
 - Include examples for production-safe command, decision, architecture, constraint, and workaround memories.
+- Document which `.md` files are worth mirroring and that mirroring is explicit, not automatic.
 
-### Phase 14: Schema Migration Framework
+### Phase 15: Cross-Project and Global Memory Sharing
+
+Support useful memory reuse without making global memory the default.
+
+- Keep project-local databases as the recommended default for reproducible project context.
+- Document global databases as an advanced personal mode with clear privacy and context-bleed tradeoffs.
+- Define conventions for reusable memory projects such as `global`, `personal-patterns`, or `org-patterns`.
+- Document search workflows that check both the current project and reusable memory contexts.
+- Consider `copy`, `promote`, or filtered export/import commands for moving a decision from one project to another.
+- Keep any cross-project sharing explicit so unrelated projects do not silently inherit stale or unsafe context.
+
+### Phase 16: Codex and Claude Skill Templates
+
+Create reusable agent templates that teach agents to use the global CLI even when repository instructions are missing.
+
+- Create a Codex skill template for `agent-memory` CLI usage.
+- Create a Claude skill/template equivalent for the same workflow.
+- Include install/discovery guidance, search-before-work workflow, memory write examples, `.md` mirroring, snapshot export, and restore commands.
+- Include safety rules for secrets, advisory-only memory, and current user/repository instruction precedence.
+- Include examples for personal installation and project bootstrap.
+- Keep templates generic enough to copy into other projects or package later.
+
+### Phase 17: Schema Migration Framework
 
 Add migrations after the tool has been used long enough to know what should change.
 
@@ -76,7 +114,7 @@ Add migrations after the tool has been used long enough to know what should chan
 - Add tests for initializing a fresh schema and upgrading an older schema.
 - Keep migrations simple and standard-library only unless a real need appears.
 
-### Phase 15: CI and Release Validation
+### Phase 18: CI and Release Validation
 
 Add CI last because the project is not ready to be shared broadly yet and may not live on GitHub immediately.
 

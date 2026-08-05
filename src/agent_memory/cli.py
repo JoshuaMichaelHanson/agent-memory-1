@@ -11,6 +11,7 @@ from .config import resolve_config
 from .database import initialize_database, inspect_database
 from .doctor import run_doctor
 from .errors import AgentMemoryError, FileOperationError, MemoryNotFoundError, ValidationError
+from .instructions import DEFAULT_AGENT_FILE, build_agent_instructions, build_agent_instructions_payload, install_agent_instructions
 from .models import Memory, MemoryInput
 from .service import MemoryService
 
@@ -61,6 +62,34 @@ def build_parser() -> argparse.ArgumentParser:
         help="Project name to diagnose. Defaults to the resolved project root name.",
     )
     doctor_parser.set_defaults(handler=handle_doctor)
+
+    instructions_parser = subparsers.add_parser("instructions", help="Show agent-facing instructions for using the memory CLI.", formatter_class=JsonHelpFormatter)
+    add_common_options(instructions_parser)
+    instructions_parser.add_argument(
+        "--project",
+        default=None,
+        help="Project name to include in examples. Defaults to the resolved project root name.",
+    )
+    instructions_parser.set_defaults(handler=handle_instructions)
+
+    install_instructions_parser = subparsers.add_parser(
+        "install-instructions",
+        help="Install or update a managed agent-memory section in an agent instruction file.",
+        formatter_class=JsonHelpFormatter,
+    )
+    add_common_options(install_instructions_parser)
+    install_instructions_parser.add_argument(
+        "--project",
+        default=None,
+        help="Project name to include in examples. Defaults to the resolved project root name.",
+    )
+    install_instructions_parser.add_argument(
+        "--output",
+        type=Path,
+        default=DEFAULT_AGENT_FILE,
+        help="Instruction file to update.",
+    )
+    install_instructions_parser.set_defaults(handler=handle_install_instructions)
     put_parser = subparsers.add_parser(
         "put",
         help="Store a memory, updating an existing keyed memory when one matches.",
@@ -144,12 +173,14 @@ def build_parser() -> argparse.ArgumentParser:
     export_json_parser.add_argument("--output", type=Path, required=True, help="JSON snapshot output path.")
     export_json_parser.add_argument("--limit", type=int, default=None, help="Optional maximum memories to export.")
     export_json_parser.add_argument("--min-importance", type=int, default=None, help="Minimum importance from 1 to 5.")
+    export_json_parser.add_argument("--verify", action="store_true", help="Verify the written snapshot by restoring it into a temporary database.")
     export_json_parser.set_defaults(handler=handle_export_json)
 
     import_json_parser = subparsers.add_parser("import-json", help="Import memories from a JSON snapshot.", formatter_class=JsonHelpFormatter)
     add_common_options(import_json_parser)
     import_json_parser.add_argument("path", type=Path, help="JSON snapshot to import.")
     import_json_parser.add_argument("--allow-sensitive", action="store_true", help="Allow snapshot content that matches best-effort sensitive-value patterns.")
+    import_json_parser.add_argument("--dry-run", action="store_true", help="Validate and classify the import without mutating the database.")
     import_json_parser.set_defaults(handler=handle_import_json)
     return parser
 
@@ -220,6 +251,30 @@ def handle_doctor(args: argparse.Namespace) -> int:
         for check in result.checks:
             print(f"[{check.status}] {check.name}: {check.message}")
     return SUCCESS
+
+
+def handle_instructions(args: argparse.Namespace) -> int:
+    config = resolve_config(args.db)
+    project = args.project or config.project_root.name
+    if args.json:
+        payload = with_context(build_agent_instructions_payload(project), "instructions", config)
+        write_json(payload)
+    else:
+        print(build_agent_instructions(project), end="")
+    return SUCCESS
+
+
+def handle_install_instructions(args: argparse.Namespace) -> int:
+    config = resolve_config(args.db)
+    project = args.project or config.project_root.name
+    result = install_agent_instructions(output_path=args.output, project=project)
+    payload = with_context(result.to_dict(), "install-instructions", config)
+    if args.json:
+        write_json(payload)
+    else:
+        print(f"{result.operation.capitalize()} agent-memory instructions in {result.path}")
+    return SUCCESS
+
 
 def handle_put(args: argparse.Namespace) -> int:
     config = resolve_config(args.db)
@@ -410,24 +465,28 @@ def handle_export_json(args: argparse.Namespace) -> int:
         output_path=args.output,
         limit=args.limit,
         min_importance=args.min_importance,
+        verify=args.verify,
     )
     payload = with_context(result, "export-json", config)
     if args.json:
         write_json(payload)
     else:
-        print(f"Exported {result['count']} memories to {result['output']}")
+        verified = " and verified" if result.get("verification", {}).get("ok") else ""
+        print(f"Exported {result['count']} memories to {result['output']}{verified}")
     return SUCCESS
 
 
 def handle_import_json(args: argparse.Namespace) -> int:
     config = resolve_config(args.db)
-    result = MemoryService(config.database_path).import_json_snapshot(input_path=args.path, allow_sensitive=args.allow_sensitive)
+    result = MemoryService(config.database_path).import_json_snapshot(input_path=args.path, allow_sensitive=args.allow_sensitive, dry_run=args.dry_run)
     payload = with_context(result, "import-json", config)
     if args.json:
         write_json(payload)
     else:
+        action = "Dry-run import" if result.get("dry_run") else "Imported"
         print(
-            "Imported {count} memories from {input}: {inserted} inserted, {updated} updated, {unchanged} unchanged, {unkeyed_inserted} unkeyed inserted".format(
+            "{action} {count} memories from {input}: {inserted} inserted, {updated} updated, {unchanged} unchanged, {unkeyed_inserted} unkeyed inserted".format(
+                action=action,
                 **result
             )
         )

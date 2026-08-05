@@ -456,5 +456,78 @@ class ServicePutTests(unittest.TestCase):
         self.assertEqual(mirrored_count, 1)
         self.assertEqual(mirrored_row[0], "AGENTS.md")
         self.assertIn("Use durable memory.", mirrored_row[1])
+
+    def test_import_json_dry_run_classifies_without_creating_database(self) -> None:
+        source_path = self.db_path()
+        source = MemoryService(source_path)
+        source.put(MemoryInput(project="demo", kind="decision", memory_key="database-choice", content="Use SQLite."))
+        source.put(MemoryInput(project="demo", kind="note", content="Unkeyed journal entry."))
+        mirrored = source_path.parent / "AGENTS.md"
+        mirrored.parent.mkdir(parents=True, exist_ok=True)
+        mirrored.write_text("# Instructions\n", encoding="utf-8")
+        source.mirror_file(project="demo", path=mirrored, project_root=source_path.parent)
+        snapshot = source_path.parent / "snapshot.json"
+        source.export_json_snapshot(project="demo", output_path=snapshot)
+
+        target_path = self.db_path()
+        result = MemoryService(target_path).import_json_snapshot(input_path=snapshot, dry_run=True)
+
+        self.assertFalse(target_path.exists())
+        self.assertTrue(result["dry_run"])
+        self.assertEqual(result["inserted"], 1)
+        self.assertEqual(result["unkeyed_inserted"], 1)
+        self.assertEqual(result["mirrored_files_inserted"], 1)
+        self.assertEqual(result["validation"]["warning_count"], 1)
+        self.assertEqual(result["validation"]["unkeyed_memory_count"], 1)
+
+    def test_json_snapshot_validation_reports_multiple_errors_before_mutation(self) -> None:
+        path = self.db_path()
+        snapshot = path.parent / "invalid-snapshot.json"
+        snapshot.parent.mkdir(parents=True, exist_ok=True)
+        snapshot.write_text(
+            json.dumps(
+                {
+                    "format": "agent-memory.snapshot.v1",
+                    "project": "demo",
+                    "memories": [
+                        {"project": "", "content": "Missing project."},
+                        {"project": "demo", "content": "Hash mismatch.", "content_sha256": "bad"},
+                    ],
+                    "mirrored_files": [
+                        "not an object",
+                        {"project": "demo", "path": "AGENTS.md", "content": "Mirror hash mismatch.", "content_sha256": "bad"},
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        with self.assertRaises(ValidationError) as raised:
+            MemoryService(path).import_json_snapshot(input_path=snapshot)
+
+        message = str(raised.exception)
+        self.assertIn("memories[0]", message)
+        self.assertIn("memories[1]", message)
+        self.assertIn("mirrored_files[0]", message)
+        self.assertIn("mirrored_files[1]", message)
+        self.assertFalse(path.exists())
+
+    def test_export_json_verify_restores_snapshot_to_temporary_database(self) -> None:
+        source_path = self.db_path()
+        source = MemoryService(source_path)
+        source.put(MemoryInput(project="demo", kind="decision", memory_key="database-choice", content="Use SQLite."))
+        mirrored = source_path.parent / "AGENTS.md"
+        mirrored.parent.mkdir(parents=True, exist_ok=True)
+        mirrored.write_text("# Instructions\n", encoding="utf-8")
+        source.mirror_file(project="demo", path=mirrored, project_root=source_path.parent)
+        snapshot = source_path.parent / "snapshot.json"
+
+        result = source.export_json_snapshot(project="demo", output_path=snapshot, verify=True)
+
+        self.assertTrue(result["verification"]["ok"])
+        self.assertEqual(result["verification"]["memory_count"], 1)
+        self.assertEqual(result["verification"]["mirrored_file_count"], 1)
+        self.assertEqual(result["verification"]["inserted"], 1)
+        self.assertEqual(result["verification"]["mirrored_files_inserted"], 1)
 if __name__ == "__main__":
     unittest.main()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gc
 import json
 import os
 import re
@@ -396,6 +397,7 @@ class MemoryService:
         output_path: Path,
         limit: int | None = None,
         min_importance: int | None = None,
+        verify: bool = False,
     ) -> dict[str, Any]:
         project = validate_project(project)
         if limit is not None:
@@ -428,7 +430,8 @@ class MemoryService:
             except OSError:
                 pass
             raise FileOperationError(f"Could not write JSON snapshot: {output_path}") from exc
-        return {
+
+        result = {
             "project": project,
             "output": str(output_path),
             "format": snapshot["format"],
@@ -436,60 +439,260 @@ class MemoryService:
             "memory_count": len(memories),
             "mirrored_file_count": len(mirrored_files),
         }
+        if verify:
+            result["verification"] = verify_json_snapshot_restore(output_path)
+        return result
 
-    def import_json_snapshot(self, *, input_path: Path, allow_sensitive: bool = False) -> dict[str, Any]:
-        try:
-            snapshot = json.loads(input_path.read_text(encoding="utf-8"))
-        except OSError as exc:
-            raise FileOperationError(f"Could not read JSON snapshot: {input_path}") from exc
-        except UnicodeError as exc:
-            raise FileOperationError(f"Snapshot is not valid UTF-8: {input_path}") from exc
-        except json.JSONDecodeError as exc:
-            raise ValidationError(f"Snapshot is not valid JSON: {input_path}") from exc
+    def import_json_snapshot(self, *, input_path: Path, allow_sensitive: bool = False, dry_run: bool = False) -> dict[str, Any]:
+        validation = validate_json_snapshot(input_path=input_path, allow_sensitive=allow_sensitive)
+        if validation["error_count"]:
+            raise ValidationError(format_snapshot_validation_errors(validation["errors"]))
 
-        if not isinstance(snapshot, dict) or snapshot.get("format") != "agent-memory.snapshot.v1":
-            raise ValidationError("Snapshot format must be agent-memory.snapshot.v1.")
-        memories_payload = snapshot.get("memories")
-        if not isinstance(memories_payload, list):
-            raise ValidationError("Snapshot must contain a memories array.")
-        mirrored_files_payload = snapshot.get("mirrored_files", [])
-        if not isinstance(mirrored_files_payload, list):
-            raise ValidationError("Snapshot mirrored_files must be an array when supplied.")
-
-        for item in memories_payload:
-            memory, _, _, _, _ = memory_input_from_snapshot(item)
-            validate_no_sensitive_content(memory.content, location="JSON snapshot memory content", allow_sensitive=allow_sensitive)
-        for item in mirrored_files_payload:
-            mirrored_file = mirrored_file_from_snapshot(item)
-            validate_no_sensitive_content(mirrored_file["content"], location="JSON snapshot mirrored file content", allow_sensitive=allow_sensitive)
-
+        snapshot = validation["snapshot"]
+        memories_payload = snapshot["memories"]
+        mirrored_files_payload = snapshot["mirrored_files"]
         counts = {"inserted": 0, "updated": 0, "unchanged": 0, "unkeyed_inserted": 0}
         mirrored_file_counts = {"mirrored_files_inserted": 0, "mirrored_files_unchanged": 0}
-        try:
-            initialize_database(self.database_path)
-            with connect_writable(self.database_path) as connection:
-                with connection:
-                    for item in memories_payload:
-                        operation = import_memory_snapshot(connection, item)
-                        counts[operation] += 1
-                    for item in mirrored_files_payload:
-                        operation = import_mirrored_file_snapshot(connection, item)
-                        mirrored_file_counts[operation] += 1
-        except ValidationError:
-            raise
-        except Exception as exc:
-            raise DatabaseError(f"Could not import JSON snapshot into database: {self.database_path}") from exc
+
+        if dry_run:
+            counts, mirrored_file_counts = classify_snapshot_import(
+                self.database_path,
+                memories_payload=memories_payload,
+                mirrored_files_payload=mirrored_files_payload,
+            )
+        else:
+            try:
+                initialize_database(self.database_path)
+                with connect_writable(self.database_path) as connection:
+                    with connection:
+                        for item in memories_payload:
+                            operation = import_memory_snapshot(connection, item)
+                            counts[operation] += 1
+                        for item in mirrored_files_payload:
+                            operation = import_mirrored_file_snapshot(connection, item)
+                            mirrored_file_counts[operation] += 1
+            except ValidationError:
+                raise
+            except Exception as exc:
+                raise DatabaseError(f"Could not import JSON snapshot into database: {self.database_path}") from exc
 
         return {
             "format": snapshot["format"],
             "project": snapshot.get("project"),
             "input": str(input_path),
+            "dry_run": dry_run,
             "count": len(memories_payload),
             "memory_count": len(memories_payload),
             "mirrored_file_count": len(mirrored_files_payload),
+            "validation": snapshot_validation_public_payload(validation),
             **counts,
             **mirrored_file_counts,
         }
+
+def validate_json_snapshot(*, input_path: Path, allow_sensitive: bool = False) -> dict[str, Any]:
+    try:
+        raw_snapshot = json.loads(input_path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise FileOperationError(f"Could not read JSON snapshot: {input_path}") from exc
+    except UnicodeError as exc:
+        raise FileOperationError(f"Snapshot is not valid UTF-8: {input_path}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValidationError(f"Snapshot is not valid JSON: {input_path}") from exc
+
+    errors: list[str] = []
+    warnings: list[str] = []
+    memories_payload: list[Any] = []
+    mirrored_files_payload: list[Any] = []
+    unkeyed_memory_count = 0
+
+    if not isinstance(raw_snapshot, dict):
+        errors.append("Snapshot root must be an object.")
+        snapshot: dict[str, Any] = {"format": None, "project": None, "memories": [], "mirrored_files": []}
+    else:
+        snapshot = dict(raw_snapshot)
+        if snapshot.get("format") != "agent-memory.snapshot.v1":
+            errors.append("Snapshot format must be agent-memory.snapshot.v1.")
+
+        raw_memories = snapshot.get("memories")
+        if isinstance(raw_memories, list):
+            memories_payload = raw_memories
+        else:
+            errors.append("Snapshot must contain a memories array.")
+
+        raw_mirrored_files = snapshot.get("mirrored_files", [])
+        if isinstance(raw_mirrored_files, list):
+            mirrored_files_payload = raw_mirrored_files
+        else:
+            errors.append("Snapshot mirrored_files must be an array when supplied.")
+
+    for index, item in enumerate(memories_payload):
+        try:
+            memory, _, _, _, _ = memory_input_from_snapshot(item)
+        except ValidationError as exc:
+            errors.append(f"memories[{index}]: {exc}")
+            continue
+        try:
+            validate_no_sensitive_content(memory.content, location=f"JSON snapshot memories[{index}] content", allow_sensitive=allow_sensitive)
+        except ValidationError as exc:
+            errors.append(f"memories[{index}]: {exc}")
+        if memory.memory_key is None:
+            unkeyed_memory_count += 1
+
+    for index, item in enumerate(mirrored_files_payload):
+        try:
+            mirrored_file = mirrored_file_from_snapshot(item)
+        except ValidationError as exc:
+            errors.append(f"mirrored_files[{index}]: {exc}")
+            continue
+        try:
+            validate_no_sensitive_content(
+                mirrored_file["content"],
+                location=f"JSON snapshot mirrored_files[{index}] content",
+                allow_sensitive=allow_sensitive,
+            )
+        except ValidationError as exc:
+            errors.append(f"mirrored_files[{index}]: {exc}")
+
+    if unkeyed_memory_count:
+        noun = "memory" if unkeyed_memory_count == 1 else "memories"
+        warnings.append(
+            f"Snapshot contains {unkeyed_memory_count} unkeyed {noun}; repeated real imports create new rows. Use stable keys for shared durable memory."
+        )
+
+    snapshot["memories"] = memories_payload
+    snapshot["mirrored_files"] = mirrored_files_payload
+    return {
+        "snapshot": snapshot,
+        "errors": errors,
+        "warnings": warnings,
+        "error_count": len(errors),
+        "warning_count": len(warnings),
+        "memory_count": len(memories_payload),
+        "mirrored_file_count": len(mirrored_files_payload),
+        "unkeyed_memory_count": unkeyed_memory_count,
+    }
+
+
+def snapshot_validation_public_payload(validation: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "ok": validation["error_count"] == 0,
+        "error_count": validation["error_count"],
+        "warning_count": validation["warning_count"],
+        "errors": validation["errors"],
+        "warnings": validation["warnings"],
+        "memory_count": validation["memory_count"],
+        "mirrored_file_count": validation["mirrored_file_count"],
+        "unkeyed_memory_count": validation["unkeyed_memory_count"],
+    }
+
+
+def format_snapshot_validation_errors(errors: list[str]) -> str:
+    return f"Snapshot validation failed with {len(errors)} error(s): " + " | ".join(errors)
+
+
+def classify_snapshot_import(
+    database_path: Path,
+    *,
+    memories_payload: list[Any],
+    mirrored_files_payload: list[Any],
+) -> tuple[dict[str, int], dict[str, int]]:
+    counts = {"inserted": 0, "updated": 0, "unchanged": 0, "unkeyed_inserted": 0}
+    mirrored_file_counts = {"mirrored_files_inserted": 0, "mirrored_files_unchanged": 0}
+    if not database_path.exists():
+        return classify_snapshot_against_empty_database(memories_payload, mirrored_files_payload)
+
+    try:
+        with connect_read_only(database_path) as connection:
+            memories_available = table_exists_for_connection(connection, "memories")
+            mirrored_files_available = table_exists_for_connection(connection, "mirrored_files")
+            if not memories_available and not mirrored_files_available:
+                return classify_snapshot_against_empty_database(memories_payload, mirrored_files_payload)
+
+            for item in memories_payload:
+                memory, _, _, _, _ = memory_input_from_snapshot(item)
+                if memory.memory_key is None:
+                    counts["unkeyed_inserted"] += 1
+                elif not memories_available:
+                    counts["inserted"] += 1
+                else:
+                    existing = fetch_memory_key_row(connection, memory.project, memory.scope, memory.kind, memory.memory_key)
+                    if existing is None:
+                        counts["inserted"] += 1
+                    elif memory_matches_existing(existing, memory):
+                        counts["unchanged"] += 1
+                    else:
+                        counts["updated"] += 1
+
+            for item in mirrored_files_payload:
+                mirrored_file = mirrored_file_from_snapshot(item)
+                if not mirrored_files_available:
+                    mirrored_file_counts["mirrored_files_inserted"] += 1
+                    continue
+                existing = connection.execute(
+                    """
+                    SELECT id FROM mirrored_files
+                    WHERE project = ? AND path = ? AND content_sha256 = ?
+                    """,
+                    (mirrored_file["project"], mirrored_file["path"], mirrored_file["content_sha256"]),
+                ).fetchone()
+                operation = "mirrored_files_unchanged" if existing is not None else "mirrored_files_inserted"
+                mirrored_file_counts[operation] += 1
+    except ValidationError:
+        raise
+    except Exception as exc:
+        raise DatabaseError(f"Could not dry-run JSON snapshot import against database: {database_path}") from exc
+    return counts, mirrored_file_counts
+
+
+def classify_snapshot_against_empty_database(
+    memories_payload: list[Any],
+    mirrored_files_payload: list[Any],
+) -> tuple[dict[str, int], dict[str, int]]:
+    counts = {"inserted": 0, "updated": 0, "unchanged": 0, "unkeyed_inserted": 0}
+    for item in memories_payload:
+        memory, _, _, _, _ = memory_input_from_snapshot(item)
+        if memory.memory_key is None:
+            counts["unkeyed_inserted"] += 1
+        else:
+            counts["inserted"] += 1
+    return counts, {"mirrored_files_inserted": len(mirrored_files_payload), "mirrored_files_unchanged": 0}
+
+
+def table_exists_for_connection(connection, table_name: str) -> bool:
+    row = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type IN ('table', 'virtual table') AND name = ?",
+        (table_name,),
+    ).fetchone()
+    return row is not None
+
+
+def verify_json_snapshot_restore(snapshot_path: Path) -> dict[str, Any]:
+    temp_db = snapshot_path.with_name(f"{snapshot_path.name}.{os.getpid()}.verify.db")
+    cleanup_sqlite_database(temp_db)
+    try:
+        result = MemoryService(temp_db).import_json_snapshot(input_path=snapshot_path)
+    finally:
+        cleanup_sqlite_database(temp_db)
+    return {
+        "ok": True,
+        "memory_count": result["memory_count"],
+        "mirrored_file_count": result["mirrored_file_count"],
+        "inserted": result["inserted"],
+        "updated": result["updated"],
+        "unchanged": result["unchanged"],
+        "unkeyed_inserted": result["unkeyed_inserted"],
+        "mirrored_files_inserted": result["mirrored_files_inserted"],
+        "mirrored_files_unchanged": result["mirrored_files_unchanged"],
+    }
+
+
+def cleanup_sqlite_database(database_path: Path) -> None:
+    gc.collect()
+    for suffix in ("", "-shm", "-wal"):
+        try:
+            database_path.with_name(database_path.name + suffix).unlink(missing_ok=True)
+        except OSError:
+            pass
 
 def validate_memory_input(memory: MemoryInput) -> MemoryInput:
     normalized = memory.normalized()
