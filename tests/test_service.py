@@ -421,5 +421,40 @@ class ServicePutTests(unittest.TestCase):
         result = service.import_json_snapshot(input_path=snapshot, allow_sensitive=True)
 
         self.assertEqual(result["inserted"], 1)
+
+    def test_json_snapshot_exports_and_imports_mirrored_files_idempotently(self) -> None:
+        source_path = self.db_path()
+        source = MemoryService(source_path)
+        source.put(MemoryInput(project="demo", kind="decision", memory_key="database-choice", content="Use SQLite."))
+        mirrored = source_path.parent / "AGENTS.md"
+        mirrored.parent.mkdir(parents=True, exist_ok=True)
+        mirrored.write_text("# Agent instructions\n\nUse durable memory.\n", encoding="utf-8")
+        source.mirror_file(project="demo", path=mirrored, source_agent="codex", project_root=source_path.parent)
+        snapshot = source_path.parent / "agent-memory.snapshot.json"
+
+        export_result = source.export_json_snapshot(project="demo", output_path=snapshot)
+        payload = json.loads(snapshot.read_text(encoding="utf-8"))
+        target_path = self.db_path()
+        target = MemoryService(target_path)
+        first_import = target.import_json_snapshot(input_path=snapshot)
+        second_import = target.import_json_snapshot(input_path=snapshot)
+        connection = sqlite3.connect(target_path)
+        try:
+            mirrored_count = int(connection.execute("SELECT COUNT(*) FROM mirrored_files").fetchone()[0])
+            mirrored_row = connection.execute("SELECT path, content FROM mirrored_files").fetchone()
+        finally:
+            connection.close()
+
+        self.assertEqual(export_result["memory_count"], 1)
+        self.assertEqual(export_result["mirrored_file_count"], 1)
+        self.assertEqual(len(payload["mirrored_files"]), 1)
+        self.assertEqual(payload["mirrored_files"][0]["path"], "AGENTS.md")
+        self.assertEqual(first_import["inserted"], 1)
+        self.assertEqual(first_import["mirrored_files_inserted"], 1)
+        self.assertEqual(second_import["unchanged"], 1)
+        self.assertEqual(second_import["mirrored_files_unchanged"], 1)
+        self.assertEqual(mirrored_count, 1)
+        self.assertEqual(mirrored_row[0], "AGENTS.md")
+        self.assertIn("Use durable memory.", mirrored_row[1])
 if __name__ == "__main__":
     unittest.main()

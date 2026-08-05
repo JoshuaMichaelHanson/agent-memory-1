@@ -111,3 +111,7 @@ Phase 9 added best-effort secret guardrails for put, mirror-file, and import-jso
 ## Phase 10 Addendum
 
 Phase 10 added gent-memory doctor, a diagnostic command that reports setup health separately from command execution. It checks database path resolution, existence, schema version, WAL, search backend, read/write viability, live DB ignore policy, tracked exports, and JSON snapshot restore. Details are documented in docs/DOCTOR.md.
+
+## Phase 11 Addendum
+
+Phase 11 completed JSON snapshot coverage for mirrored file revisions. xport-json now writes a mirrored_files array, and import-json restores those revisions idempotently by project + path + content_sha256. Snapshot workflow details are documented in docs/MEMORY_SYNC.md.

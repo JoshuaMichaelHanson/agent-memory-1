@@ -676,5 +676,66 @@ class CliSmokeTests(unittest.TestCase):
         self.assertTrue(payload["healthy"])
         self.assertGreaterEqual(payload["warning_count"], 1)
         self.assertIn("snapshot_restore", {check["name"] for check in payload["checks"]})
+
+    def test_export_json_and_import_json_include_mirrored_files(self) -> None:
+        source_db = self.db_path()
+        target_db = self.db_path()
+        snapshot = source_db.parent / "agent-memory.snapshot.json"
+        mirrored = source_db.parent / "AGENTS.md"
+        mirrored.parent.mkdir(parents=True, exist_ok=True)
+        mirrored.write_text("# Agent instructions\n\nUse durable memory.\n", encoding="utf-8")
+        put_result = self.run_agent_memory(
+            "put",
+            "--json",
+            "--db",
+            str(source_db),
+            "--project",
+            "demo",
+            "--kind",
+            "decision",
+            "--key",
+            "database-choice",
+            "--content",
+            "Use SQLite.",
+        )
+        mirror_result = self.run_agent_memory(
+            "mirror-file",
+            str(mirrored),
+            "--json",
+            "--db",
+            str(source_db),
+            "--project",
+            "demo",
+            "--agent",
+            "codex",
+        )
+        self.assertEqual(put_result.returncode, 0, put_result.stderr)
+        self.assertEqual(mirror_result.returncode, 0, mirror_result.stderr)
+
+        export_result = self.run_agent_memory(
+            "export-json",
+            "--json",
+            "--db",
+            str(source_db),
+            "--project",
+            "demo",
+            "--output",
+            str(snapshot),
+        )
+        self.assertEqual(export_result.returncode, 0, export_result.stderr)
+        export_payload = json.loads(export_result.stdout)
+        snapshot_payload = json.loads(snapshot.read_text(encoding="utf-8"))
+        self.assertEqual(export_payload["memory_count"], 1)
+        self.assertEqual(export_payload["mirrored_file_count"], 1)
+        self.assertEqual(len(snapshot_payload["mirrored_files"]), 1)
+
+        first_import = self.run_agent_memory("import-json", str(snapshot), "--json", "--db", str(target_db))
+        second_import = self.run_agent_memory("import-json", str(snapshot), "--json", "--db", str(target_db))
+        self.assertEqual(first_import.returncode, 0, first_import.stderr)
+        self.assertEqual(second_import.returncode, 0, second_import.stderr)
+        first_payload = json.loads(first_import.stdout)
+        second_payload = json.loads(second_import.stdout)
+        self.assertEqual(first_payload["mirrored_files_inserted"], 1)
+        self.assertEqual(second_payload["mirrored_files_unchanged"], 1)
 if __name__ == "__main__":
     unittest.main()

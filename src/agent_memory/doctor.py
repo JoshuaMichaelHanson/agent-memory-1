@@ -223,6 +223,9 @@ def check_snapshot_restore(project_root: Path) -> DoctorCheck:
         updated=result["updated"],
         unchanged=result["unchanged"],
         unkeyed_inserted=result["unkeyed_inserted"],
+        mirrored_file_count=result.get("mirrored_file_count", 0),
+        mirrored_files_inserted=result.get("mirrored_files_inserted", 0),
+        mirrored_files_unchanged=result.get("mirrored_files_unchanged", 0),
     )
 
 def cleanup_temp_database(database_path: Path) -> None:

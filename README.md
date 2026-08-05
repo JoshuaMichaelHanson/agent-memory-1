@@ -262,7 +262,7 @@ Initialization attempts to create an FTS5 external-content table and synchroniza
 
 `export-md` writes generated Markdown for human review. The generated file starts with a warning and should not be treated as canonical.
 
-`export-json` writes the portable restore artifact. `import-json` recreates or updates a local SQLite database from that artifact. Keyed memories are idempotent; unkeyed memories import as new rows.
+`export-json` writes the portable restore artifact, including semantic memories and mirrored file revisions. `import-json` recreates or updates a local SQLite database from that artifact. Keyed memories are idempotent; mirrored file revisions are idempotent by `project + path + content_sha256`; unkeyed memories import as new rows.
 
 ## Security and Privacy
 

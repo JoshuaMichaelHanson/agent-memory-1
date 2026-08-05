@@ -116,10 +116,10 @@ Use this file as the operational checklist until the SQLite memory database is a
 
 ## Phase 11: Complete Snapshot Coverage
 
-- [ ] Include `mirrored_files` revisions in `export-json`.
-- [ ] Restore mirrored file revisions in `import-json`.
-- [ ] Keep mirrored-file import idempotent by `project + path + content_sha256`.
-- [ ] Update snapshot documentation and tests.
+- [x] Include `mirrored_files` revisions in `export-json`.
+- [x] Restore mirrored file revisions in `import-json`.
+- [x] Keep mirrored-file import idempotent by `project + path + content_sha256`.
+- [x] Update snapshot documentation and tests.
 
 ## Phase 12: Backup and Restore Polish
 

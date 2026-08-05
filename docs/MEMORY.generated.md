@@ -3,9 +3,19 @@
 
 # Agent Memory: agent-memory-1
 
-Generated: 2026-08-05T03:53:17Z
+Generated: 2026-08-05T04:12:22Z
 
 ## Architecture
+
+### snapshot-mirrored-files
+
+- ID: 11
+- Importance: 5
+- Scope: project
+- Updated: 2026-08-05T04:12:22.005Z
+- Tags: mirror-file, phase-11, snapshot
+
+Phase 11 is complete. JSON snapshots now include both semantic memories and mirrored file revisions. export-json writes mirrored_files, and import-json restores mirrored revisions idempotently by project, path, and content_sha256 while preserving keyed memory idempotence. The project snapshot now includes a mirrored AGENTS.md revision.
 
 ### cli-service-separation
 

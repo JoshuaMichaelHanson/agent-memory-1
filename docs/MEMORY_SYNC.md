@@ -57,7 +57,9 @@ python -m agent_memory search "canonical memory store" --db ./.agent-memory/memo
 ## Snapshot Rules
 
 - The snapshot format is `agent-memory.snapshot.v1`.
+- Snapshots contain semantic `memories` and exact `mirrored_files` revisions.
 - Keyed memories are idempotent on import because they upsert by `project + scope + kind + memory_key`.
+- Mirrored file revisions are idempotent on import by `project + path + content_sha256`.
 - Unkeyed memories are imported as new rows each time. Shared durable memories should use stable keys.
 - Import validates content hashes when a snapshot includes them.
 - Do not put secrets, credentials, tokens, private keys, or protected personal data in memory or exports.

@@ -35,6 +35,8 @@ Add a diagnostic command for real-repo setup and ongoing maintenance.
 
 ### Phase 11: Complete Snapshot Coverage
 
+Phase 11 status: complete. JSON snapshots now include semantic memories and mirrored file revisions.
+
 Make tracked memory handoff complete enough for another computer to recreate useful project context.
 
 - Include `mirrored_files` revisions in `export-json`.

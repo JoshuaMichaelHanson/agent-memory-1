@@ -407,12 +407,14 @@ class MemoryService:
             limit=limit,
             min_importance=min_importance,
         )
+        mirrored_files = select_mirrored_files_for_export(self.database_path, project=project)
         snapshot = {
             "format": "agent-memory.snapshot.v1",
             "project": project,
             "source_database": str(self.database_path),
             "exported_at": current_utc_timestamp(),
             "memories": [memory.to_dict() for memory in memories],
+            "mirrored_files": mirrored_files,
         }
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -431,6 +433,8 @@ class MemoryService:
             "output": str(output_path),
             "format": snapshot["format"],
             "count": len(memories),
+            "memory_count": len(memories),
+            "mirrored_file_count": len(mirrored_files),
         }
 
     def import_json_snapshot(self, *, input_path: Path, allow_sensitive: bool = False) -> dict[str, Any]:
@@ -448,12 +452,19 @@ class MemoryService:
         memories_payload = snapshot.get("memories")
         if not isinstance(memories_payload, list):
             raise ValidationError("Snapshot must contain a memories array.")
+        mirrored_files_payload = snapshot.get("mirrored_files", [])
+        if not isinstance(mirrored_files_payload, list):
+            raise ValidationError("Snapshot mirrored_files must be an array when supplied.")
 
         for item in memories_payload:
             memory, _, _, _, _ = memory_input_from_snapshot(item)
             validate_no_sensitive_content(memory.content, location="JSON snapshot memory content", allow_sensitive=allow_sensitive)
+        for item in mirrored_files_payload:
+            mirrored_file = mirrored_file_from_snapshot(item)
+            validate_no_sensitive_content(mirrored_file["content"], location="JSON snapshot mirrored file content", allow_sensitive=allow_sensitive)
 
         counts = {"inserted": 0, "updated": 0, "unchanged": 0, "unkeyed_inserted": 0}
+        mirrored_file_counts = {"mirrored_files_inserted": 0, "mirrored_files_unchanged": 0}
         try:
             initialize_database(self.database_path)
             with connect_writable(self.database_path) as connection:
@@ -461,6 +472,9 @@ class MemoryService:
                     for item in memories_payload:
                         operation = import_memory_snapshot(connection, item)
                         counts[operation] += 1
+                    for item in mirrored_files_payload:
+                        operation = import_mirrored_file_snapshot(connection, item)
+                        mirrored_file_counts[operation] += 1
         except ValidationError:
             raise
         except Exception as exc:
@@ -471,7 +485,10 @@ class MemoryService:
             "project": snapshot.get("project"),
             "input": str(input_path),
             "count": len(memories_payload),
+            "memory_count": len(memories_payload),
+            "mirrored_file_count": len(mirrored_files_payload),
             **counts,
+            **mirrored_file_counts,
         }
 
 def validate_memory_input(memory: MemoryInput) -> MemoryInput:
@@ -765,6 +782,89 @@ def select_memories_for_export(
         ).fetchall()
         return [memory_from_row(row) for row in rows]
 
+
+
+
+def select_mirrored_files_for_export(database_path: Path, *, project: str) -> list[dict[str, Any]]:
+    if not database_path.exists():
+        return []
+    with connect_read_only(database_path) as connection:
+        rows = connection.execute(
+            """
+            SELECT id, project, path, content, content_sha256, source_agent, created_at
+            FROM mirrored_files
+            WHERE project = ?
+            ORDER BY path ASC, created_at ASC, id ASC
+            """,
+            (project,),
+        ).fetchall()
+        return [mirrored_file_row_to_dict(row) for row in rows]
+
+
+def mirrored_file_row_to_dict(row) -> dict[str, Any]:
+    return {
+        "id": int(row["id"]),
+        "project": str(row["project"]),
+        "path": str(row["path"]),
+        "content": str(row["content"]),
+        "content_sha256": str(row["content_sha256"]),
+        "source_agent": str(row["source_agent"]),
+        "created_at": str(row["created_at"]),
+    }
+
+
+def mirrored_file_from_snapshot(item: Any) -> dict[str, Any]:
+    if not isinstance(item, dict):
+        raise ValidationError("Each snapshot mirrored file must be an object.")
+    project = str(item.get("project", "")).strip()
+    path = str(item.get("path", "")).strip()
+    content = normalize_content(str(item.get("content", "")))
+    source_agent = str(item.get("source_agent", "unknown")).strip() or "unknown"
+    created_at = str(item.get("created_at") or current_utc_timestamp())
+    if not project:
+        raise ValidationError("Snapshot mirrored file project is required.")
+    if not path:
+        raise ValidationError("Snapshot mirrored file path is required.")
+    expected_hash = item.get("content_sha256")
+    digest = content_sha256(content)
+    if expected_hash is not None and str(expected_hash) != digest:
+        raise ValidationError(f"Snapshot mirrored file hash mismatch for {path}.")
+    return {
+        "project": project,
+        "path": path,
+        "content": content,
+        "content_sha256": digest,
+        "source_agent": source_agent,
+        "created_at": created_at,
+    }
+
+
+def import_mirrored_file_snapshot(connection, item: Any) -> str:
+    mirrored_file = mirrored_file_from_snapshot(item)
+    existing = connection.execute(
+        """
+        SELECT id FROM mirrored_files
+        WHERE project = ? AND path = ? AND content_sha256 = ?
+        """,
+        (mirrored_file["project"], mirrored_file["path"], mirrored_file["content_sha256"]),
+    ).fetchone()
+    if existing is not None:
+        return "mirrored_files_unchanged"
+    connection.execute(
+        """
+        INSERT INTO mirrored_files(project, path, content, content_sha256, source_agent, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            mirrored_file["project"],
+            mirrored_file["path"],
+            mirrored_file["content"],
+            mirrored_file["content_sha256"],
+            mirrored_file["source_agent"],
+            mirrored_file["created_at"],
+        ),
+    )
+    return "mirrored_files_inserted"
 
 def import_memory_snapshot(connection, item: Any) -> str:
     memory, created_at, updated_at, last_accessed_at, access_count = memory_input_from_snapshot(item)
