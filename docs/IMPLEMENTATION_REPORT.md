@@ -99,3 +99,7 @@ Phase 8 added dogfooding support without committing the live SQLite database:
 - Generated `docs/MEMORY.generated.md` for human review.
 
 The live database remains ignored by Git. The tracked JSON snapshot is the portable restore artifact.
+
+## Production Readiness Roadmap
+
+Next work is documented in docs/PRODUCTION_READINESS_ROADMAP.md. The order is secret guardrails, doctor command, complete snapshot coverage, backup/restore polish, production usage guide, schema migration framework, and CI/release validation. MCP remains future-state and optional.

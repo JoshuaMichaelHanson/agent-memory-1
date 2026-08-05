@@ -3,7 +3,7 @@
 
 # Agent Memory: agent-memory-1
 
-Generated: 2026-08-04T23:04:19Z
+Generated: 2026-08-05T01:22:07Z
 
 ## Architecture
 
@@ -66,6 +66,16 @@ SQLite is the canonical memory store for agent-memory. Markdown files are bootst
 Repository path is C:\Development\agent-memory-1. Git is initialized. IntelliJ MCP is configured in .codex/config.toml and resolved the project as module agent-memory-1.
 
 ## Workflow
+
+### production-readiness-roadmap
+
+- ID: 8
+- Importance: 5
+- Scope: project
+- Updated: 2026-08-05T01:22:06.861Z
+- Tags: production-readiness, roadmap, workflow
+
+Production readiness work should proceed in this order: Phase 9 secret guardrails, Phase 10 doctor command, Phase 11 complete snapshot coverage, Phase 12 backup/restore polish, Phase 13 production usage guide, Phase 14 schema migration framework after real usage identifies needed schema changes, and Phase 15 CI/release validation last because GitHub/sharing is not yet the immediate goal. MCP remains optional future-state for personal development.
 
 ### memory-sync-before-checkin
 

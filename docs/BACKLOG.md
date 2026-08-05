@@ -99,3 +99,52 @@ Use this file as the operational checklist until the SQLite memory database is a
 - [x] Update `AGENTS.md` to prefer `agent-memory search` before reading `WORKING_MEMORY.md`.
 - [x] Keep `WORKING_MEMORY.md` only as a legacy bootstrap note or generated export companion.
 - [x] Document JSON snapshot export before checkin and restore on another computer.
+## Phase 9: Secret Guardrails
+
+- [ ] Detect obvious secrets in `put`, `mirror-file`, and `import-json`.
+- [ ] Block sensitive content by default with a clear validation error.
+- [ ] Add an explicit override such as `--allow-sensitive`.
+- [ ] Add service and CLI tests for secret guardrails.
+- [ ] Update security documentation.
+
+## Phase 10: Doctor Command
+
+- [ ] Add `agent-memory doctor --json`.
+- [ ] Check database path, existence, schema version, WAL, FTS, read/write health, ignored live DB files, and tracked export presence.
+- [ ] Report warnings separately from failures.
+- [ ] Add healthy and unhealthy doctor tests.
+
+## Phase 11: Complete Snapshot Coverage
+
+- [ ] Include `mirrored_files` revisions in `export-json`.
+- [ ] Restore mirrored file revisions in `import-json`.
+- [ ] Keep mirrored-file import idempotent by `project + path + content_sha256`.
+- [ ] Update snapshot documentation and tests.
+
+## Phase 12: Backup and Restore Polish
+
+- [ ] Add `import-json --dry-run`.
+- [ ] Add snapshot validation that reports detected problems before mutation.
+- [ ] Add export verification through temporary restore.
+- [ ] Warn or document repeated imports of unkeyed memories.
+
+## Phase 13: Production Usage Guide
+
+- [ ] Document production-safe memory practices.
+- [ ] Document what to store and what not to store.
+- [ ] Document memory as advisory context, not executable authority.
+- [ ] Provide production repository bootstrap examples.
+
+## Phase 14: Schema Migration Framework
+
+- [ ] Wait for real usage to identify schema changes before creating schema version `2`.
+- [ ] Add ordered migration framework before changing schema version `1`.
+- [ ] Add backup-before-migrate guidance.
+- [ ] Add fresh-init and old-schema upgrade tests.
+
+## Phase 15: CI and Release Validation
+
+- [ ] Add CI when the project is closer to being shared or hosted on GitHub.
+- [ ] Validate Windows, Linux, macOS, and supported Python versions.
+- [ ] Build wheel/sdist and smoke-test installed console script.
+- [ ] Add publishing/package checks if distribution becomes a goal.
