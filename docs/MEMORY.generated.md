@@ -3,7 +3,7 @@
 
 # Agent Memory: agent-memory-1
 
-Generated: 2026-08-05T01:22:07Z
+Generated: 2026-08-05T02:44:36Z
 
 ## Architecture
 
@@ -64,6 +64,18 @@ SQLite is the canonical memory store for agent-memory. Markdown files are bootst
 - Tags: bootstrap, intellij, repo
 
 Repository path is C:\Development\agent-memory-1. Git is initialized. IntelliJ MCP is configured in .codex/config.toml and resolved the project as module agent-memory-1.
+
+## Security
+
+### secret-guardrails
+
+- ID: 9
+- Importance: 5
+- Scope: project
+- Updated: 2026-08-05T02:44:35.926Z
+- Tags: phase-9, production-readiness, security
+
+Phase 9 is complete. The service layer enforces best-effort secret guardrails for put, mirror-file, and import-json before database mutation. The CLI exposes an explicit allow-sensitive override for intentional local-only storage. Detection covers obvious private key blocks, credentialed URLs, bearer token headers, secret-like assignments, AWS access key IDs, and GitHub token shapes, but remains best-effort and does not replace review.
 
 ## Workflow
 

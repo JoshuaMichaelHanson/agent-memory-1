@@ -101,11 +101,11 @@ Use this file as the operational checklist until the SQLite memory database is a
 - [x] Document JSON snapshot export before checkin and restore on another computer.
 ## Phase 9: Secret Guardrails
 
-- [ ] Detect obvious secrets in `put`, `mirror-file`, and `import-json`.
-- [ ] Block sensitive content by default with a clear validation error.
-- [ ] Add an explicit override such as `--allow-sensitive`.
-- [ ] Add service and CLI tests for secret guardrails.
-- [ ] Update security documentation.
+- [x] Detect obvious secrets in `put`, `mirror-file`, and `import-json`.
+- [x] Block sensitive content by default with a clear validation error.
+- [x] Add an explicit override such as `--allow-sensitive`.
+- [x] Add service and CLI tests for secret guardrails.
+- [x] Update security documentation.
 
 ## Phase 10: Doctor Command
 

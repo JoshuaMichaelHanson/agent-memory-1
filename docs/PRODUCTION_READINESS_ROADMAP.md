@@ -10,6 +10,8 @@ This roadmap captures the next work after Phase 8 self-hosting. MCP remains a fu
 
 ### Phase 9: Secret Guardrails
 
+Phase 9 status: complete. See `docs/SECRET_GUARDRAILS.md`.
+
 Add best-effort protection against accidentally storing sensitive values.
 
 - Detect obvious secrets in `put`, `mirror-file`, and `import-json`.

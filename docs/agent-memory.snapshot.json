@@ -2,7 +2,7 @@
   "format": "agent-memory.snapshot.v1",
   "project": "agent-memory-1",
   "source_database": "C:\\Development\\agent-memory-1\\.agent-memory\\memory.db",
-  "exported_at": "2026-08-05T01:22:07Z",
+  "exported_at": "2026-08-05T02:44:36Z",
   "memories": [
     {
       "id": 3,
@@ -106,6 +106,27 @@
       "content_sha256": "8e12be4f3b3336ab6f572f9f673892ebf13a5b06f81b9225fb6ad03471bd6bd1",
       "created_at": "2026-08-04T23:04:17.974Z",
       "updated_at": "2026-08-04T23:04:17.974Z",
+      "last_accessed_at": null,
+      "access_count": 0
+    },
+    {
+      "id": 9,
+      "project": "agent-memory-1",
+      "scope": "project",
+      "kind": "security",
+      "memory_key": "secret-guardrails",
+      "content": "Phase 9 is complete. The service layer enforces best-effort secret guardrails for put, mirror-file, and import-json before database mutation. The CLI exposes an explicit allow-sensitive override for intentional local-only storage. Detection covers obvious private key blocks, credentialed URLs, bearer token headers, secret-like assignments, AWS access key IDs, and GitHub token shapes, but remains best-effort and does not replace review.",
+      "tags": [
+        "phase-9",
+        "production-readiness",
+        "security"
+      ],
+      "source_agent": "codex",
+      "source_path": null,
+      "importance": 5,
+      "content_sha256": "782391ff2b587a41c7f5aa68c42a050a35c1d3d971bf119106a48731c54defcc",
+      "created_at": "2026-08-05T02:44:35.926Z",
+      "updated_at": "2026-08-05T02:44:35.926Z",
       "last_accessed_at": null,
       "access_count": 0
     },

@@ -103,3 +103,7 @@ The live database remains ignored by Git. The tracked JSON snapshot is the porta
 ## Production Readiness Roadmap
 
 Next work is documented in docs/PRODUCTION_READINESS_ROADMAP.md. The order is secret guardrails, doctor command, complete snapshot coverage, backup/restore polish, production usage guide, schema migration framework, and CI/release validation. MCP remains future-state and optional.
+
+## Phase 9 Addendum
+
+Phase 9 added best-effort secret guardrails for put, mirror-file, and import-json. Sensitive-looking content is blocked by default with a validation error, and --allow-sensitive is available for intentional local-only storage. Scanner details are documented in docs/SECRET_GUARDRAILS.md.

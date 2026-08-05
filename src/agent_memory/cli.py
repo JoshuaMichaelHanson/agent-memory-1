@@ -68,6 +68,7 @@ def build_parser() -> argparse.ArgumentParser:
     put_parser.add_argument("--importance", type=int, default=3, help="Importance from 1 to 5.")
     put_parser.add_argument("--agent", dest="source_agent", default="unknown", help="Agent or user writing the memory.")
     put_parser.add_argument("--source-path", default=None, help="Optional source path for this memory.")
+    put_parser.add_argument("--allow-sensitive", action="store_true", help="Allow content that matches best-effort sensitive-value patterns.")
     content_group = put_parser.add_mutually_exclusive_group(required=True)
     content_group.add_argument("--content", default=None, help="Memory content text.")
     content_group.add_argument("--content-file", type=Path, default=None, help="Read memory content from a UTF-8 file.")
@@ -119,6 +120,7 @@ def build_parser() -> argparse.ArgumentParser:
     mirror_parser.add_argument("path", type=Path, help="File to mirror.")
     mirror_parser.add_argument("--project", required=True, help="Project name for the mirrored file.")
     mirror_parser.add_argument("--agent", dest="source_agent", default="unknown", help="Agent or user mirroring the file.")
+    mirror_parser.add_argument("--allow-sensitive", action="store_true", help="Allow file content that matches best-effort sensitive-value patterns.")
     mirror_parser.set_defaults(handler=handle_mirror_file)
 
     export_parser = subparsers.add_parser("export-md", help="Export memories to generated Markdown.", formatter_class=JsonHelpFormatter)
@@ -139,6 +141,7 @@ def build_parser() -> argparse.ArgumentParser:
     import_json_parser = subparsers.add_parser("import-json", help="Import memories from a JSON snapshot.", formatter_class=JsonHelpFormatter)
     add_common_options(import_json_parser)
     import_json_parser.add_argument("path", type=Path, help="JSON snapshot to import.")
+    import_json_parser.add_argument("--allow-sensitive", action="store_true", help="Allow snapshot content that matches best-effort sensitive-value patterns.")
     import_json_parser.set_defaults(handler=handle_import_json)
     return parser
 
@@ -205,7 +208,7 @@ def handle_put(args: argparse.Namespace) -> int:
         source_path=args.source_path,
         importance=args.importance,
     )
-    result = MemoryService(config.database_path).put(memory_input)
+    result = MemoryService(config.database_path).put(memory_input, allow_sensitive=args.allow_sensitive)
     payload = with_context(result.to_dict(), "put", config)
 
     if args.json:
@@ -348,6 +351,7 @@ def handle_mirror_file(args: argparse.Namespace) -> int:
         path=args.path,
         source_agent=args.source_agent,
         project_root=config.project_root,
+        allow_sensitive=args.allow_sensitive,
     )
     payload = with_context(result, "mirror-file", config)
     if args.json:
@@ -391,7 +395,7 @@ def handle_export_json(args: argparse.Namespace) -> int:
 
 def handle_import_json(args: argparse.Namespace) -> int:
     config = resolve_config(args.db)
-    result = MemoryService(config.database_path).import_json_snapshot(input_path=args.path)
+    result = MemoryService(config.database_path).import_json_snapshot(input_path=args.path, allow_sensitive=args.allow_sensitive)
     payload = with_context(result, "import-json", config)
     if args.json:
         write_json(payload)

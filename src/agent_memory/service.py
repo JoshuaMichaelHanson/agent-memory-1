@@ -12,6 +12,7 @@ from .database import connect_read_only, connect_writable, has_memories_fts, ini
 from .errors import DatabaseError, FileOperationError, MemoryNotFoundError, ValidationError
 from .markdown import render_memory_export
 from .models import Memory, MemoryInput, PutResult, content_sha256, memory_from_row, normalize_content, normalize_tags, serialize_tags
+from .security import validate_no_sensitive_content
 
 MAX_LIMIT = 100
 
@@ -20,8 +21,9 @@ class MemoryService:
     def __init__(self, database_path: Path):
         self.database_path = database_path
 
-    def put(self, memory: MemoryInput) -> PutResult:
+    def put(self, memory: MemoryInput, *, allow_sensitive: bool = False) -> PutResult:
         memory = validate_memory_input(memory)
+        validate_no_sensitive_content(memory.content, location="memory content", allow_sensitive=allow_sensitive)
 
         try:
             initialize_database(self.database_path)
@@ -269,7 +271,15 @@ class MemoryService:
         except Exception as exc:
             raise DatabaseError(f"Could not delete memory from database: {self.database_path}") from exc
 
-    def mirror_file(self, *, project: str, path: Path, source_agent: str = "unknown", project_root: Path | None = None) -> dict[str, Any]:
+    def mirror_file(
+        self,
+        *,
+        project: str,
+        path: Path,
+        source_agent: str = "unknown",
+        project_root: Path | None = None,
+        allow_sensitive: bool = False,
+    ) -> dict[str, Any]:
         project = validate_project(project)
         source_agent = source_agent.strip() or "unknown"
         try:
@@ -280,6 +290,7 @@ class MemoryService:
             raise FileOperationError(f"File is not valid UTF-8: {path}") from exc
 
         normalized_content = normalize_content(content)
+        validate_no_sensitive_content(normalized_content, location=f"mirrored file {path}", allow_sensitive=allow_sensitive)
         digest = content_sha256(normalized_content)
         stored_path = display_path(path, project_root)
 
@@ -422,7 +433,7 @@ class MemoryService:
             "count": len(memories),
         }
 
-    def import_json_snapshot(self, *, input_path: Path) -> dict[str, Any]:
+    def import_json_snapshot(self, *, input_path: Path, allow_sensitive: bool = False) -> dict[str, Any]:
         try:
             snapshot = json.loads(input_path.read_text(encoding="utf-8"))
         except OSError as exc:
@@ -437,6 +448,10 @@ class MemoryService:
         memories_payload = snapshot.get("memories")
         if not isinstance(memories_payload, list):
             raise ValidationError("Snapshot must contain a memories array.")
+
+        for item in memories_payload:
+            memory, _, _, _, _ = memory_input_from_snapshot(item)
+            validate_no_sensitive_content(memory.content, location="JSON snapshot memory content", allow_sensitive=allow_sensitive)
 
         counts = {"inserted": 0, "updated": 0, "unchanged": 0, "unkeyed_inserted": 0}
         try:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
@@ -550,5 +551,91 @@ class CliSmokeTests(unittest.TestCase):
         )
         self.assertEqual(search_result.returncode, 0, search_result.stderr)
         self.assertEqual(json.loads(search_result.stdout)["count"], 1)
+
+    def test_put_secret_guardrail_json_error_and_override(self) -> None:
+        db_path = self.db_path()
+        blocked = self.run_agent_memory(
+            "put",
+            "--json",
+            "--db",
+            str(db_path),
+            "--project",
+            "demo",
+            "--content",
+            "password=not-a-real-test-secret",
+        )
+        self.assertEqual(blocked.returncode, 5)
+        blocked_payload = json.loads(blocked.stdout)
+        self.assertEqual(blocked_payload["error"]["code"], "VALIDATION_ERROR")
+        self.assertIn("Sensitive content detected", blocked_payload["error"]["message"])
+
+        allowed = self.run_agent_memory(
+            "put",
+            "--json",
+            "--db",
+            str(db_path),
+            "--project",
+            "demo",
+            "--content",
+            "password=not-a-real-test-secret",
+            "--allow-sensitive",
+        )
+        self.assertEqual(allowed.returncode, 0, allowed.stderr)
+        self.assertEqual(json.loads(allowed.stdout)["operation"], "inserted")
+
+    def test_mirror_file_secret_guardrail_json_error(self) -> None:
+        db_path = self.db_path()
+        source = db_path.parent / "secrets.md"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text("client_secret=not-a-real-test-secret", encoding="utf-8")
+
+        blocked = self.run_agent_memory(
+            "mirror-file",
+            str(source),
+            "--json",
+            "--db",
+            str(db_path),
+            "--project",
+            "demo",
+        )
+
+        self.assertEqual(blocked.returncode, 5)
+        self.assertIn("Sensitive content detected", json.loads(blocked.stdout)["error"]["message"])
+
+    def test_import_json_secret_guardrail_json_error_and_override(self) -> None:
+        db_path = self.db_path()
+        snapshot = db_path.parent / "snapshot.json"
+        secret_content = "token=not-a-real-test-token"
+        snapshot.parent.mkdir(parents=True, exist_ok=True)
+        snapshot.write_text(
+            json.dumps(
+                {
+                    "format": "agent-memory.snapshot.v1",
+                    "project": "demo",
+                    "memories": [
+                        {
+                            "project": "demo",
+                            "kind": "note",
+                            "memory_key": "secret-note",
+                            "content": secret_content,
+                            "tags": [],
+                            "source_agent": "test",
+                            "source_path": None,
+                            "importance": 3,
+                            "content_sha256": hashlib.sha256(secret_content.encode("utf-8")).hexdigest(),
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        blocked = self.run_agent_memory("import-json", str(snapshot), "--json", "--db", str(db_path))
+        self.assertEqual(blocked.returncode, 5)
+        self.assertIn("Sensitive content detected", json.loads(blocked.stdout)["error"]["message"])
+
+        allowed = self.run_agent_memory("import-json", str(snapshot), "--json", "--db", str(db_path), "--allow-sensitive")
+        self.assertEqual(allowed.returncode, 0, allowed.stderr)
+        self.assertEqual(json.loads(allowed.stdout)["inserted"], 1)
 if __name__ == "__main__":
     unittest.main()

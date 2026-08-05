@@ -357,5 +357,69 @@ class ServicePutTests(unittest.TestCase):
         assert restored is not None
         self.assertEqual(restored.content, "Use SQLite as canonical memory.")
         self.assertEqual(restored.tags, ("architecture", "sqlite"))
+
+    def test_secret_guardrail_blocks_put_unless_explicitly_allowed(self) -> None:
+        path = self.db_path()
+        service = MemoryService(path)
+        memory = MemoryInput(project="demo", content="password=not-a-real-test-secret")
+
+        with self.assertRaises(ValidationError):
+            service.put(memory)
+
+        result = service.put(memory, allow_sensitive=True)
+
+        self.assertEqual(result.operation, "inserted")
+        self.assertEqual(result.memory.content, "password=not-a-real-test-secret")
+
+    def test_secret_guardrail_blocks_mirror_file_unless_explicitly_allowed(self) -> None:
+        path = self.db_path()
+        service = MemoryService(path)
+        source = path.parent / "secrets.md"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text("token=not-a-real-test-token", encoding="utf-8")
+
+        with self.assertRaises(ValidationError):
+            service.mirror_file(project="demo", path=source, project_root=path.parent)
+
+        result = service.mirror_file(project="demo", path=source, project_root=path.parent, allow_sensitive=True)
+
+        self.assertEqual(result["operation"], "inserted")
+
+    def test_secret_guardrail_blocks_json_import_before_mutation(self) -> None:
+        path = self.db_path()
+        service = MemoryService(path)
+        snapshot = path.parent / "snapshot.json"
+        secret_content = "api_key=not-a-real-test-secret"
+        snapshot.parent.mkdir(parents=True, exist_ok=True)
+        snapshot.write_text(
+            json.dumps(
+                {
+                    "format": "agent-memory.snapshot.v1",
+                    "project": "demo",
+                    "memories": [
+                        {
+                            "project": "demo",
+                            "kind": "note",
+                            "memory_key": "secret-note",
+                            "content": secret_content,
+                            "tags": [],
+                            "source_agent": "test",
+                            "source_path": None,
+                            "importance": 3,
+                            "content_sha256": content_sha256(secret_content),
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        with self.assertRaises(ValidationError):
+            service.import_json_snapshot(input_path=snapshot)
+
+        self.assertFalse(path.exists())
+        result = service.import_json_snapshot(input_path=snapshot, allow_sensitive=True)
+
+        self.assertEqual(result["inserted"], 1)
 if __name__ == "__main__":
     unittest.main()

@@ -142,7 +142,7 @@ Stores a memory. If `--key` is supplied, `project + scope + kind + key` is upser
 agent-memory put --project demo --kind decision --key database-choice --content "Use SQLite." --importance 5 --tag sqlite --json
 ```
 
-Content must come from exactly one of `--content`, `--content-file`, or `--stdin`.
+Content must come from exactly one of `--content`, `--content-file`, or `--stdin`. By default, `put` blocks content matching best-effort sensitive-value patterns; use `--allow-sensitive` only for intentional local-only storage.
 
 ### `get`
 
@@ -180,7 +180,7 @@ agent-memory delete --project demo --kind decision --key database-choice --yes -
 
 ### `mirror-file`
 
-Stores exact UTF-8 file revisions in `mirrored_files`. It does not extract semantic memories.
+Stores exact UTF-8 file revisions in `mirrored_files`. It does not extract semantic memories. By default, mirrored file content is checked for best-effort sensitive-value patterns.
 
 ```powershell
 agent-memory mirror-file .\AGENTS.md --project demo --agent codex --json
@@ -204,7 +204,7 @@ agent-memory export-json --project demo --output .\docs\agent-memory.snapshot.js
 
 ### `import-json`
 
-Imports a JSON snapshot into the configured SQLite database. Keyed memories are idempotent on import.
+Imports a JSON snapshot into the configured SQLite database. Keyed memories are idempotent on import. By default, imported memory content is checked for best-effort sensitive-value patterns.
 
 ```powershell
 agent-memory import-json .\docs\agent-memory.snapshot.json --json
@@ -258,6 +258,8 @@ Initialization attempts to create an FTS5 external-content table and synchroniza
 ## Security and Privacy
 
 Do not store passwords, API keys, access tokens, private keys, credentialed connection strings, or protected personal data.
+
+Phase 9 adds best-effort secret guardrails for `put`, `mirror-file`, and `import-json`. The scanner blocks obvious private key blocks, credentialed URLs, bearer tokens, secret-like assignments such as `password=...`, and common token formats. Detection is not comprehensive and is not a substitute for review. Use `--allow-sensitive` only for rare intentional local-only storage.
 
 The database is a normal local file and inherits operating-system permissions. Project-local databases should normally be excluded from Git. Generated Markdown exports may expose the same information as the database.
 
