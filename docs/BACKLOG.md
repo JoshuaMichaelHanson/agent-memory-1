@@ -130,11 +130,11 @@ Use this file as the operational checklist until the SQLite memory database is a
 
 ## Phase 13: Agent Onboarding Instructions
 
-- [ ] Add `agent-memory instructions` for concise agent-facing CLI workflow guidance.
-- [ ] Add `agent-memory instructions --json` for machine-readable instruction metadata.
-- [ ] Add an idempotent command to install or update an agent-memory section in `AGENTS.md` or another output file.
-- [ ] Document how global CLI installs bootstrap local project agents that do not already know about `agent-memory`.
-- [ ] Add CLI and service tests for instruction output and idempotent section updates.
+- [x] Add `agent-memory instructions` for concise agent-facing CLI workflow guidance.
+- [x] Add `agent-memory instructions --json` for machine-readable instruction metadata.
+- [x] Add an idempotent command to install or update an agent-memory section in `AGENTS.md` or another output file.
+- [x] Document how global CLI installs bootstrap local project agents that do not already know about `agent-memory`.
+- [x] Add CLI and instruction tests for instruction output and idempotent section updates.
 
 ## Phase 14: Production Usage Guide
 

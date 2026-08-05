@@ -120,3 +120,7 @@ Phase 11 completed JSON snapshot coverage for mirrored file revisions. `export-j
 ## Phase 12 Addendum
 
 Phase 12 polished backup and restore workflows. `import-json --dry-run` validates snapshots and classifies expected inserts, updates, unchanged rows, unkeyed inserts, and mirrored file imports without mutating the target database. Snapshot validation reports all detected item-level problems before mutation. `export-json --verify` restores the written snapshot into a temporary SQLite database and reports restore counts. Unkeyed memories now produce validation warnings because repeated real imports create new rows. The roadmap was also updated so the next phases are agent onboarding instructions, production usage guide, cross-project/global memory sharing, Codex and Claude skill templates, schema migrations, and CI/release validation.
+
+## Phase 13 Addendum
+
+Phase 13 added agent onboarding commands for global CLI discovery. `agent-memory instructions` prints concise agent-facing Markdown, `agent-memory instructions --json` returns machine-readable instruction metadata, and `agent-memory install-instructions` installs or replaces a managed section in files such as `AGENTS.md` while preserving hand-written content outside the markers. Details are documented in `docs/AGENT_ONBOARDING.md`.

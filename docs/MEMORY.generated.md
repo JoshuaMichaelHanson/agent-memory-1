@@ -3,9 +3,19 @@
 
 # Agent Memory: agent-memory-1
 
-Generated: 2026-08-05T06:06:34Z
+Generated: 2026-08-05T07:09:25Z
 
 ## Architecture
+
+### agent-onboarding-instructions
+
+- ID: 13
+- Importance: 5
+- Scope: project
+- Updated: 2026-08-05T06:44:31.256Z
+- Tags: agents, cli, onboarding, phase-13
+
+Phase 13 is complete. The CLI now exposes agent onboarding through agent-memory instructions, machine-readable instructions JSON, and install-instructions for idempotent managed sections in AGENTS.md or another agent instruction file. This bridges global CLI installs until future MCP support can advertise tools, resources, and prompts directly.
 
 ### backup-restore-polish
 

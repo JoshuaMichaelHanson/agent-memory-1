@@ -2,8 +2,30 @@
   "format": "agent-memory.snapshot.v1",
   "project": "agent-memory-1",
   "source_database": "C:\\Development\\agent-memory-1\\.agent-memory\\memory.db",
-  "exported_at": "2026-08-05T06:06:34Z",
+  "exported_at": "2026-08-05T07:09:25Z",
   "memories": [
+    {
+      "id": 13,
+      "project": "agent-memory-1",
+      "scope": "project",
+      "kind": "architecture",
+      "memory_key": "agent-onboarding-instructions",
+      "content": "Phase 13 is complete. The CLI now exposes agent onboarding through agent-memory instructions, machine-readable instructions JSON, and install-instructions for idempotent managed sections in AGENTS.md or another agent instruction file. This bridges global CLI installs until future MCP support can advertise tools, resources, and prompts directly.",
+      "tags": [
+        "agents",
+        "cli",
+        "onboarding",
+        "phase-13"
+      ],
+      "source_agent": "codex",
+      "source_path": null,
+      "importance": 5,
+      "content_sha256": "b33f5186768ae6c009a0484678467b0d2ad696d3b427fbe6a459876a9b8f84ef",
+      "created_at": "2026-08-05T06:44:31.256Z",
+      "updated_at": "2026-08-05T06:44:31.256Z",
+      "last_accessed_at": "2026-08-05T06:44:31.264Z",
+      "access_count": 1
+    },
     {
       "id": 12,
       "project": "agent-memory-1",
@@ -211,8 +233,8 @@
       "content_sha256": "da11fe105d7a390e9c82d33121e2bd928a5cba0043f11d704b51c847a3213b48",
       "created_at": "2026-08-05T01:22:06.861Z",
       "updated_at": "2026-08-05T06:06:27.872Z",
-      "last_accessed_at": "2026-08-05T05:24:30.860Z",
-      "access_count": 2
+      "last_accessed_at": "2026-08-05T06:44:31.264Z",
+      "access_count": 4
     },
     {
       "id": 7,

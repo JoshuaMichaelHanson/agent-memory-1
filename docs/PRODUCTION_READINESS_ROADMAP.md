@@ -60,6 +60,8 @@ Make export/import safer to run before checkin and during onboarding.
 
 ### Phase 13: Agent Onboarding Instructions
 
+Phase 13 status: complete. The CLI now prints agent-facing instructions and installs an idempotent managed section in agent instruction files.
+
 Teach local agents how to use a global CLI without requiring each user to paste instructions every time.
 
 - Add `agent-memory instructions` with concise Markdown output for agents.
