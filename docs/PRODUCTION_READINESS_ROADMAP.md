@@ -86,13 +86,15 @@ Document how to use the tool responsibly in real application repositories.
 
 ### Phase 15: Cross-Project and Global Memory Sharing
 
+Phase 15 status: complete. See `docs/CROSS_PROJECT_MEMORY.md`.
+
 Support useful memory reuse without making global memory the default.
 
 - Keep project-local databases as the recommended default for reproducible project context.
 - Document global databases as an advanced personal mode with clear privacy and context-bleed tradeoffs.
 - Define conventions for reusable memory projects such as `global`, `personal-patterns`, or `org-patterns`.
 - Document search workflows that check both the current project and reusable memory contexts.
-- Consider `copy`, `promote`, or filtered export/import commands for moving a decision from one project to another.
+- Add `copy` for moving a selected memory from one project to another; defer filtered export/import until real usage shows it is needed.
 - Keep any cross-project sharing explicit so unrelated projects do not silently inherit stale or unsafe context.
 
 ### Phase 16: Codex and Claude Skill Templates

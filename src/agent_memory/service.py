@@ -234,6 +234,70 @@ class MemoryService:
         except Exception as exc:
             raise DatabaseError(f"Could not list recent memories from database: {self.database_path}") from exc
 
+    def copy_memory(
+        self,
+        *,
+        target_project: str,
+        source_id: int | None = None,
+        source_project: str | None = None,
+        source_scope: str = "project",
+        source_kind: str = "note",
+        source_key: str | None = None,
+        target_scope: str | None = None,
+        target_kind: str | None = None,
+        target_key: str | None = None,
+        source_agent: str = "unknown",
+        allow_sensitive: bool = False,
+    ) -> dict[str, Any]:
+        if source_id is not None and (source_project or source_key):
+            raise ValidationError("Use either --id or keyed source lookup options, not both.")
+        if source_id is None and (not source_project or not source_key):
+            raise ValidationError("Copy requires --id or --from-project and --from-key.")
+
+        if source_id is not None:
+            source = self.get_by_id(source_id, touch=False)
+        else:
+            assert source_project is not None
+            assert source_key is not None
+            source = self.get_by_key(
+                project=source_project,
+                scope=source_scope,
+                kind=source_kind,
+                memory_key=source_key,
+                touch=False,
+            )
+        if source is None:
+            raise MemoryNotFoundError("No memory matched the supplied copy source.")
+
+        target_project = validate_project(target_project)
+        target_scope = (target_scope if target_scope is not None else source.scope).strip() or source.scope
+        target_kind = (target_kind if target_kind is not None else source.kind).strip() or source.kind
+        copied_key = target_key.strip() if target_key is not None else source.memory_key
+        if copied_key is not None and not copied_key:
+            copied_key = None
+        if copied_key is None:
+            raise ValidationError("Copying an unkeyed memory requires --to-key.")
+
+        result = self.put(
+            MemoryInput(
+                project=target_project,
+                scope=target_scope,
+                kind=target_kind,
+                memory_key=copied_key,
+                content=source.content,
+                tags=source.tags,
+                source_agent=source_agent,
+                source_path=source.source_path,
+                importance=source.importance,
+            ),
+            allow_sensitive=allow_sensitive,
+        )
+        return {
+            "operation": result.operation,
+            "source_memory": source.to_dict(),
+            "memory": result.memory.to_dict(),
+        }
+
     def delete_by_id(self, memory_id: int) -> bool:
         if memory_id < 1:
             raise ValidationError("Memory ID must be a positive integer.")

@@ -142,6 +142,20 @@ def build_parser() -> argparse.ArgumentParser:
     search_parser.add_argument("--no-touch", action="store_true", help="Do not update access metadata.")
     search_parser.set_defaults(handler=handle_search)
 
+    copy_parser = subparsers.add_parser("copy", help="Copy one memory into another project explicitly.", formatter_class=JsonHelpFormatter)
+    add_common_options(copy_parser)
+    copy_parser.add_argument("--id", dest="memory_id", type=int, default=None, help="Source memory ID to copy.")
+    copy_parser.add_argument("--from-project", default=None, help="Source project for keyed copy lookup.")
+    copy_parser.add_argument("--from-scope", default="project", help="Source scope for keyed copy lookup.")
+    copy_parser.add_argument("--from-kind", default="note", help="Source kind for keyed copy lookup.")
+    copy_parser.add_argument("--from-key", dest="from_key", default=None, help="Source key for keyed copy lookup.")
+    copy_parser.add_argument("--to-project", required=True, help="Target project for the copied memory.")
+    copy_parser.add_argument("--to-scope", default=None, help="Target scope. Defaults to the source scope.")
+    copy_parser.add_argument("--to-kind", default=None, help="Target kind. Defaults to the source kind.")
+    copy_parser.add_argument("--to-key", default=None, help="Target key. Defaults to the source key; required when copying an unkeyed source.")
+    copy_parser.add_argument("--agent", dest="source_agent", default="unknown", help="Agent or user copying the memory.")
+    copy_parser.add_argument("--allow-sensitive", action="store_true", help="Allow copied content that matches best-effort sensitive-value patterns.")
+    copy_parser.set_defaults(handler=handle_copy)
     delete_parser = subparsers.add_parser("delete", help="Delete a memory by ID or compound key.", formatter_class=JsonHelpFormatter)
     add_common_options(delete_parser)
     delete_parser.add_argument("--id", dest="memory_id", type=int, default=None, help="Memory ID to delete.")
@@ -397,6 +411,31 @@ def handle_recent(args: argparse.Namespace) -> int:
             print_memory_summary(memory)
     return SUCCESS
 
+
+def handle_copy(args: argparse.Namespace) -> int:
+    config = resolve_config(args.db)
+    result = MemoryService(config.database_path).copy_memory(
+        source_id=args.memory_id,
+        source_project=args.from_project,
+        source_scope=args.from_scope,
+        source_kind=args.from_kind,
+        source_key=args.from_key,
+        target_project=args.to_project,
+        target_scope=args.to_scope,
+        target_kind=args.to_kind,
+        target_key=args.to_key,
+        source_agent=args.source_agent,
+        allow_sensitive=args.allow_sensitive,
+    )
+    payload = with_context(result, "copy", config)
+    if args.json:
+        write_json(payload)
+    else:
+        memory = Memory(**result["memory"])
+        source = result["source_memory"]
+        identifier = memory.memory_key or str(memory.id)
+        print(f"{result['operation'].capitalize()} copied memory {memory.id}: {memory.project}/{memory.kind}/{identifier} from {source['id']}")
+    return SUCCESS
 
 def handle_delete(args: argparse.Namespace) -> int:
     config = resolve_config(args.db)

@@ -23,13 +23,14 @@ The core version 1 CLI commands are implemented:
 - `get`
 - `search`
 - `recent`
+- `copy`
 - `delete`
 - `mirror-file`
 - `export-md`
 - `export-json`
 - `import-json`
 
-Phase 14 adds production usage guidance for applying the CLI responsibly in real application repositories.
+Phase 15 adds explicit cross-project memory sharing guidance and a `copy` command for promoting selected memories into reusable projects.
 
 ## Installation
 
@@ -197,6 +198,14 @@ Lists recently updated memories.
 agent-memory recent --project demo --limit 10 --json
 ```
 
+### `copy`
+
+Copies one selected memory into another project in the same database. Copy by ID or keyed source lookup. The target scope, kind, and key default from the source; copying an unkeyed source requires `--to-key`.
+
+```powershell
+agent-memory copy --from-project demo --from-kind decision --from-key database-choice --to-project personal-patterns --agent codex --json
+agent-memory copy --id 42 --to-project global --to-key reusable-pattern --agent codex --json
+```
 ### `delete`
 
 Deletes by ID or compound key. Use `--yes` in scripts and agent workflows.
@@ -275,6 +284,11 @@ Initialization attempts to create an FTS5 external-content table and synchroniza
 
 `status --json` reports the active search backend as `fts5`, `like`, or `unavailable`.
 
+## Cross-Project and Global Memory
+
+Project-local databases remain the recommended default. For reusable context, use explicit project names such as `global`, `personal-patterns`, or `org-patterns`, and search them only when the current project memory is insufficient. Use `copy` to promote a selected memory into another project instead of making repositories silently inherit global context.
+
+See `docs/CROSS_PROJECT_MEMORY.md` for the full workflow and privacy tradeoffs.
 ## Markdown Mirroring and Export
 
 `mirror-file` stores exact UTF-8 file snapshots and creates a new mirrored revision only when file content changes. It does not summarize Markdown or convert sections into semantic memories.
@@ -338,7 +352,7 @@ python -m agent_memory init --db .\.agent-memory\memory.db --json
 python -m agent_memory import-json .\docs\agent-memory.snapshot.json --db .\.agent-memory\memory.db --json
 ```
 
-See `docs/MEMORY_SYNC.md` for the full workflow. See `docs/DOCTOR.md` for diagnostics. See `docs/AGENT_ONBOARDING.md` for global CLI agent-bootstrap guidance. See `docs/PRODUCTION_USAGE.md` for production-safe memory practices, repository bootstrap examples, and Markdown mirroring guidance.
+See `docs/MEMORY_SYNC.md` for the full workflow. See `docs/DOCTOR.md` for diagnostics. See `docs/AGENT_ONBOARDING.md` for global CLI agent-bootstrap guidance. See `docs/PRODUCTION_USAGE.md` for production-safe memory practices, repository bootstrap examples, and Markdown mirroring guidance. See `docs/CROSS_PROJECT_MEMORY.md` for explicit cross-project and global memory workflows.
 
 ## Development
 

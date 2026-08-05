@@ -26,9 +26,11 @@ class InstructionTests(unittest.TestCase):
         self.assertIn(SECTION_END, payload["section"])
         self.assertIn("agent-memory search", payload["section"])
         self.assertIn("agent-memory export-json", payload["section"])
+        self.assertIn("agent-memory copy", payload["section"])
         self.assertIn("agent-memory --help", payload["section"])
         self.assertIn("agent-memory <command> --help", payload["section"])
         self.assertIn("search", {command["name"] for command in payload["commands"]})
+        self.assertIn("copy", {command["name"] for command in payload["commands"]})
 
     def test_install_instructions_inserts_updates_and_becomes_unchanged(self) -> None:
         output = self.output_path()

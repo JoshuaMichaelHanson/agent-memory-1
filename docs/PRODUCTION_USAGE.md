@@ -225,6 +225,24 @@ Keep hand-written Markdown when:
 
 Generated Markdown exports are review artifacts, not canonical state.
 
+## Cross-Project Reuse
+
+Keep project-local memory as the default for production repositories. Use reusable project names such as `global`, `personal-patterns`, or `org-patterns` only when the user explicitly wants shared context.
+
+Search current project memory first. Search reusable contexts only as a second step:
+
+```powershell
+agent-memory search "database migration" --project my-service --limit 8 --json
+agent-memory search "database migration" --db "$env:USERPROFILE\.agent-memory\global-memory.db" --project personal-patterns --limit 5 --json
+```
+
+Promote selected memories explicitly with `copy`:
+
+```powershell
+agent-memory copy --from-project my-service --from-kind decision --from-key idempotency-storage --to-project personal-patterns --agent codex --json
+```
+
+Do not use global memory to override repository-specific instructions, source code, security policy, or team conventions. See `docs/CROSS_PROJECT_MEMORY.md` for the full workflow.
 ## Review Before Checkin
 
 Before committing memory changes:

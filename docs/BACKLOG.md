@@ -146,11 +146,11 @@ Use this file as the operational checklist until the SQLite memory database is a
 
 ## Phase 15: Cross-Project and Global Memory Sharing
 
-- [ ] Document project-local DB as the default and global DB as an explicit advanced mode.
-- [ ] Define conventions for reusable memory projects such as `global`, `personal-patterns`, or `org-patterns`.
-- [ ] Add or scope search guidance for checking both project-local and reusable memory contexts.
-- [ ] Consider `copy`, `promote`, or export/import filtering workflows for moving useful decisions across projects.
-- [ ] Document privacy and context-bleed risks for global memory.
+- [x] Document project-local DB as the default and global DB as an explicit advanced mode.
+- [x] Define conventions for reusable memory projects such as `global`, `personal-patterns`, or `org-patterns`.
+- [x] Add or scope search guidance for checking both project-local and reusable memory contexts.
+- [x] Add `copy` workflow for moving useful decisions across projects; defer filtered export/import until real use shows it is needed.
+- [x] Document privacy and context-bleed risks for global memory.
 
 ## Phase 16: Codex and Claude Skill Templates
 

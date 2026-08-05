@@ -62,6 +62,12 @@ def build_agent_instructions(project: str) -> str:
             "- Mirroring is explicit; the CLI does not watch files automatically after the first mirror.",
             "- Mirror stable files such as `AGENTS.md`, `CLAUDE.md`, architecture notes, ADRs, runbooks, and setup notes. Do not mirror generated exports, logs, or large unrelated docs.",
             "",
+            "### Cross-Project Reuse",
+            "",
+            "- Search the current project first; only search reusable contexts such as `global`, `personal-patterns`, or `org-patterns` when the user asks or local memory is insufficient.",
+            f"- Promote selected memories explicitly: `agent-memory copy --from-project {project} --from-kind decision --from-key short-name --to-project personal-patterns --agent codex --json`.",
+            "- Do not let global memory override current repository files, user instructions, security policy, or team conventions.",
+            "",
             "### Before Checkin",
             "",
             f"- Export a verified snapshot: `agent-memory export-json --project {project} --output docs/agent-memory.snapshot.json --verify --json`.",
@@ -101,6 +107,10 @@ def build_agent_instructions_payload(project: str) -> dict[str, Any]:
             {
                 "name": "mirror-file",
                 "example": f"agent-memory mirror-file AGENTS.md --project {project} --agent codex --json",
+            },
+            {
+                "name": "copy",
+                "example": f"agent-memory copy --from-project {project} --from-kind decision --from-key short-name --to-project personal-patterns --agent codex --json",
             },
             {
                 "name": "export-json",

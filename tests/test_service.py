@@ -258,6 +258,54 @@ class ServicePutTests(unittest.TestCase):
 
         self.assertEqual([result["memory"]["id"] for result in results], [inserted.memory.id])
 
+    def test_copy_memory_to_another_project_is_explicit_and_idempotent(self) -> None:
+        path = self.db_path()
+        service = MemoryService(path)
+        source = service.put(
+            MemoryInput(
+                project="demo",
+                kind="decision",
+                memory_key="database-choice",
+                content="Use SQLite as canonical memory.",
+                tags=("sqlite", "architecture"),
+                source_agent="codex",
+                importance=5,
+            )
+        )
+
+        copied = service.copy_memory(
+            source_project="demo",
+            source_kind="decision",
+            source_key="database-choice",
+            target_project="global",
+            source_agent="codex",
+        )
+        repeated = service.copy_memory(source_id=source.memory.id, target_project="global", source_agent="codex")
+        renamed = service.copy_memory(source_id=source.memory.id, target_project="personal-patterns", target_key="sqlite-choice", source_agent="codex")
+
+        self.assertEqual(copied["operation"], "inserted")
+        self.assertEqual(repeated["operation"], "unchanged")
+        self.assertEqual(renamed["operation"], "inserted")
+        self.assertEqual(copied["source_memory"]["id"], source.memory.id)
+        self.assertEqual(copied["memory"]["project"], "global")
+        self.assertEqual(copied["memory"]["memory_key"], "database-choice")
+        self.assertEqual(copied["memory"]["tags"], ["architecture", "sqlite"])
+        self.assertEqual(renamed["memory"]["project"], "personal-patterns")
+        self.assertEqual(renamed["memory"]["memory_key"], "sqlite-choice")
+
+    def test_copy_unkeyed_memory_requires_target_key(self) -> None:
+        path = self.db_path()
+        service = MemoryService(path)
+        source = service.put(MemoryInput(project="demo", content="Unkeyed note."))
+
+        with self.assertRaises(ValidationError):
+            service.copy_memory(source_id=source.memory.id, target_project="global")
+
+        copied = service.copy_memory(source_id=source.memory.id, target_project="global", target_key="durable-note")
+
+        self.assertEqual(copied["operation"], "inserted")
+        self.assertEqual(copied["memory"]["memory_key"], "durable-note")
+
     def test_delete_by_id_and_key(self) -> None:
         path = self.db_path()
         service = MemoryService(path)

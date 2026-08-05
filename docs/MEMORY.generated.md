@@ -3,7 +3,7 @@
 
 # Agent Memory: agent-memory-1
 
-Generated: 2026-08-05T09:41:58Z
+Generated: 2026-08-05T13:41:32Z
 
 ## Architecture
 
@@ -120,6 +120,16 @@ Repository path is C:\Development\agent-memory-1. Git is initialized. IntelliJ M
 Phase 9 is complete. The service layer enforces best-effort secret guardrails for put, mirror-file, and import-json before database mutation. The CLI exposes an explicit allow-sensitive override for intentional local-only storage. Detection covers obvious private key blocks, credentialed URLs, bearer token headers, secret-like assignments, AWS access key IDs, and GitHub token shapes, but remains best-effort and does not replace review.
 
 ## Workflow
+
+### phase-15-cross-project-memory
+
+- ID: 15
+- Importance: 5
+- Scope: project
+- Updated: 2026-08-05T13:41:26.224Z
+- Tags: cross-project, global-memory, phase-15
+
+Phase 15 added explicit cross-project/global memory sharing. The CLI now has agent-memory copy for copying one selected memory by ID or keyed source lookup into another project in the same database, requiring --to-key for unkeyed sources. docs/CROSS_PROJECT_MEMORY.md documents project-local DB default, reusable project names, global DB advanced mode, explicit search workflow, copy promotion, snapshot sharing, and privacy/context-bleed risks.
 
 ### phase-14-production-usage-guide
 

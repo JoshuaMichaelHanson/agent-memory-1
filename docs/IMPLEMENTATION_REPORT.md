@@ -128,3 +128,6 @@ Phase 13 added agent onboarding commands for global CLI discovery. `agent-memory
 ## Phase 14 Addendum
 
 Phase 14 added production usage guidance for real application repositories. `docs/PRODUCTION_USAGE.md` documents the recommended global CLI plus project-local database model, what to store, what not to store, advisory-only memory rules, production-safe examples, repository bootstrap snippets, explicit Markdown mirroring, SQLite-versus-Markdown guidance, and review-before-checkin workflow.
+## Phase 15 Addendum
+
+Phase 15 added explicit cross-project memory sharing. `agent-memory copy` copies one selected memory by ID or keyed source lookup into another project in the same database while requiring `--to-key` for unkeyed sources. `docs/CROSS_PROJECT_MEMORY.md` documents project-local memory as the default, global databases as advanced personal mode, reusable project naming conventions, explicit multi-context search, copy/promotion workflow, snapshot sharing, and privacy/context-bleed risks.

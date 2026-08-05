@@ -395,6 +395,105 @@ class CliSmokeTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)["count"], 1)
+
+    def test_copy_json_moves_memory_to_target_project_explicitly(self) -> None:
+        db_path = self.db_path()
+        put_result = self.run_agent_memory(
+            "put",
+            "--json",
+            "--db",
+            str(db_path),
+            "--project",
+            "demo",
+            "--kind",
+            "decision",
+            "--key",
+            "database-choice",
+            "--content",
+            "Use SQLite as canonical memory.",
+            "--tag",
+            "sqlite",
+            "--importance",
+            "5",
+        )
+        self.assertEqual(put_result.returncode, 0, put_result.stderr)
+
+        copy_result = self.run_agent_memory(
+            "copy",
+            "--json",
+            "--db",
+            str(db_path),
+            "--from-project",
+            "demo",
+            "--from-kind",
+            "decision",
+            "--from-key",
+            "database-choice",
+            "--to-project",
+            "global",
+            "--agent",
+            "codex",
+        )
+        repeat_result = self.run_agent_memory(
+            "copy",
+            "--json",
+            "--db",
+            str(db_path),
+            "--from-project",
+            "demo",
+            "--from-kind",
+            "decision",
+            "--from-key",
+            "database-choice",
+            "--to-project",
+            "global",
+            "--agent",
+            "codex",
+        )
+        search_result = self.run_agent_memory(
+            "search",
+            "SQLite canonical",
+            "--json",
+            "--db",
+            str(db_path),
+            "--project",
+            "global",
+        )
+
+        self.assertEqual(copy_result.returncode, 0, copy_result.stderr)
+        self.assertEqual(repeat_result.returncode, 0, repeat_result.stderr)
+        self.assertEqual(search_result.returncode, 0, search_result.stderr)
+        copy_payload = json.loads(copy_result.stdout)
+        repeat_payload = json.loads(repeat_result.stdout)
+        search_payload = json.loads(search_result.stdout)
+        self.assertEqual(copy_payload["command"], "copy")
+        self.assertEqual(copy_payload["operation"], "inserted")
+        self.assertEqual(repeat_payload["operation"], "unchanged")
+        self.assertEqual(copy_payload["source_memory"]["project"], "demo")
+        self.assertEqual(copy_payload["memory"]["project"], "global")
+        self.assertEqual(copy_payload["memory"]["memory_key"], "database-choice")
+        self.assertEqual(search_payload["count"], 1)
+
+    def test_copy_json_requires_target_key_for_unkeyed_source(self) -> None:
+        db_path = self.db_path()
+        put_result = self.run_agent_memory(
+            "put",
+            "--json",
+            "--db",
+            str(db_path),
+            "--project",
+            "demo",
+            "--content",
+            "Unkeyed source memory.",
+        )
+        self.assertEqual(put_result.returncode, 0, put_result.stderr)
+        memory_id = json.loads(put_result.stdout)["memory"]["id"]
+
+        blocked = self.run_agent_memory("copy", "--json", "--db", str(db_path), "--id", str(memory_id), "--to-project", "global")
+
+        self.assertEqual(blocked.returncode, 5)
+        self.assertEqual(json.loads(blocked.stdout)["error"]["code"], "VALIDATION_ERROR")
+
     def test_delete_json_by_id_and_missing(self) -> None:
         db_path = self.db_path()
         put_result = self.run_agent_memory(
