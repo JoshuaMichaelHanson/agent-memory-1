@@ -16,6 +16,7 @@ The core version 1 CLI commands are implemented:
 
 - `init`
 - `status`
+- `doctor`
 - `put`
 - `get`
 - `search`
@@ -132,6 +133,14 @@ Reports database path, existence, schema version, memory count, journal mode, an
 
 ```powershell
 agent-memory status --project demo --json
+```
+
+### `doctor`
+
+Diagnoses database health, ignored live DB files, tracked exports, and snapshot restore viability. `ok` means the command ran; `healthy` reports setup health.
+
+```powershell
+agent-memory doctor --project demo --json
 ```
 
 ### `put`
@@ -309,7 +318,7 @@ python -m agent_memory init --db .\.agent-memory\memory.db --json
 python -m agent_memory import-json .\docs\agent-memory.snapshot.json --db .\.agent-memory\memory.db --json
 ```
 
-See `docs/MEMORY_SYNC.md` for the full workflow.
+See `docs/MEMORY_SYNC.md` for the full workflow. See `docs/DOCTOR.md` for diagnostics.
 
 ## Development
 

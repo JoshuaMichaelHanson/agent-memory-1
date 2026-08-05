@@ -23,6 +23,8 @@ Add best-effort protection against accidentally storing sensitive values.
 
 ### Phase 10: Doctor Command
 
+Phase 10 status: complete. See `docs/DOCTOR.md`.
+
 Add a diagnostic command for real-repo setup and ongoing maintenance.
 
 - Add `agent-memory doctor --json`.

@@ -3,7 +3,7 @@
 
 # Agent Memory: agent-memory-1
 
-Generated: 2026-08-05T02:44:36Z
+Generated: 2026-08-05T03:53:17Z
 
 ## Architecture
 
@@ -52,6 +52,18 @@ Do not commit the live .agent-memory SQLite database files. Git ignores memory.d
 - Tags: architecture, memory, sqlite
 
 SQLite is the canonical memory store for agent-memory. Markdown files are bootstrap context, optional generated exports, or compatibility artifacts.
+
+## Diagnostic
+
+### doctor-command
+
+- ID: 10
+- Importance: 5
+- Scope: project
+- Updated: 2026-08-05T03:53:17.137Z
+- Tags: diagnostics, doctor, phase-10
+
+Phase 10 is complete. The CLI includes agent-memory doctor, which reports ok for command execution separately from healthy setup status. Doctor checks path resolution, parent write access, database existence, schema version, WAL mode, search backend, read-only inspection, live database ignore policy, tracked JSON and Markdown exports, and JSON snapshot restore into an ignored temporary database under tmp.
 
 ## Environment
 

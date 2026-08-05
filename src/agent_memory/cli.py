@@ -9,6 +9,7 @@ from typing import Any, Sequence
 from . import __version__
 from .config import resolve_config
 from .database import initialize_database, inspect_database
+from .doctor import run_doctor
 from .errors import AgentMemoryError, FileOperationError, MemoryNotFoundError, ValidationError
 from .models import Memory, MemoryInput
 from .service import MemoryService
@@ -52,7 +53,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Project name to report status for. Defaults to the resolved project root name.",
     )
     status_parser.set_defaults(handler=handle_status)
-
+    doctor_parser = subparsers.add_parser("doctor", help="Diagnose memory database and export setup.", formatter_class=JsonHelpFormatter)
+    add_common_options(doctor_parser)
+    doctor_parser.add_argument(
+        "--project",
+        default=None,
+        help="Project name to diagnose. Defaults to the resolved project root name.",
+    )
+    doctor_parser.set_defaults(handler=handle_doctor)
     put_parser = subparsers.add_parser(
         "put",
         help="Store a memory, updating an existing keyed memory when one matches.",
@@ -194,6 +202,24 @@ def handle_status(args: argparse.Namespace) -> int:
         print(f"Most recent update: {result.most_recent_update or 'none'}")
     return SUCCESS
 
+
+def handle_doctor(args: argparse.Namespace) -> int:
+    config = resolve_config(args.db)
+    project = args.project or config.project_root.name
+    result = run_doctor(database_path=config.database_path, project_root=config.project_root, project=project)
+    payload = result.to_dict()
+    payload["command"] = "doctor"
+    payload["database_source"] = config.source
+
+    if args.json:
+        write_json(payload)
+    else:
+        print(f"Healthy: {'yes' if result.healthy else 'no'}")
+        print(f"Failures: {len(result.failures)}")
+        print(f"Warnings: {len(result.warnings)}")
+        for check in result.checks:
+            print(f"[{check.status}] {check.name}: {check.message}")
+    return SUCCESS
 
 def handle_put(args: argparse.Namespace) -> int:
     config = resolve_config(args.db)

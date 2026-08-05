@@ -2,7 +2,7 @@
   "format": "agent-memory.snapshot.v1",
   "project": "agent-memory-1",
   "source_database": "C:\\Development\\agent-memory-1\\.agent-memory\\memory.db",
-  "exported_at": "2026-08-05T02:44:36Z",
+  "exported_at": "2026-08-05T03:53:17Z",
   "memories": [
     {
       "id": 3,
@@ -85,6 +85,27 @@
       "content_sha256": "3576427d1d33eb922c2458991e5c9b8a27fe75b7864e62d77a9172be94a95f93",
       "created_at": "2026-08-04T23:04:18.136Z",
       "updated_at": "2026-08-04T23:04:18.136Z",
+      "last_accessed_at": null,
+      "access_count": 0
+    },
+    {
+      "id": 10,
+      "project": "agent-memory-1",
+      "scope": "project",
+      "kind": "diagnostic",
+      "memory_key": "doctor-command",
+      "content": "Phase 10 is complete. The CLI includes agent-memory doctor, which reports ok for command execution separately from healthy setup status. Doctor checks path resolution, parent write access, database existence, schema version, WAL mode, search backend, read-only inspection, live database ignore policy, tracked JSON and Markdown exports, and JSON snapshot restore into an ignored temporary database under tmp.",
+      "tags": [
+        "diagnostics",
+        "doctor",
+        "phase-10"
+      ],
+      "source_agent": "codex",
+      "source_path": null,
+      "importance": 5,
+      "content_sha256": "370265d1e759758e716dd3e508c17dc38f1e252a7188646a8112699ff9d2175b",
+      "created_at": "2026-08-05T03:53:17.137Z",
+      "updated_at": "2026-08-05T03:53:17.137Z",
       "last_accessed_at": null,
       "access_count": 0
     },

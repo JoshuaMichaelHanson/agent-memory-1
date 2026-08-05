@@ -637,5 +637,44 @@ class CliSmokeTests(unittest.TestCase):
         allowed = self.run_agent_memory("import-json", str(snapshot), "--json", "--db", str(db_path), "--allow-sensitive")
         self.assertEqual(allowed.returncode, 0, allowed.stderr)
         self.assertEqual(json.loads(allowed.stdout)["inserted"], 1)
+
+    def test_doctor_json_reports_missing_database_without_nonzero_exit(self) -> None:
+        db_path = self.db_path()
+
+        result = self.run_agent_memory("doctor", "--json", "--db", str(db_path), "--project", "demo")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertTrue(payload["ok"])
+        self.assertFalse(payload["healthy"])
+        self.assertGreaterEqual(payload["failure_count"], 1)
+        self.assertIn("database_exists", {failure["name"] for failure in payload["failures"]})
+
+    def test_doctor_json_reports_initialized_database_as_healthy(self) -> None:
+        db_path = self.db_path()
+        put_result = self.run_agent_memory(
+            "put",
+            "--json",
+            "--db",
+            str(db_path),
+            "--project",
+            "demo",
+            "--kind",
+            "decision",
+            "--key",
+            "database-choice",
+            "--content",
+            "Use SQLite.",
+        )
+        self.assertEqual(put_result.returncode, 0, put_result.stderr)
+
+        result = self.run_agent_memory("doctor", "--json", "--db", str(db_path), "--project", "demo")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertTrue(payload["ok"])
+        self.assertTrue(payload["healthy"])
+        self.assertGreaterEqual(payload["warning_count"], 1)
+        self.assertIn("snapshot_restore", {check["name"] for check in payload["checks"]})
 if __name__ == "__main__":
     unittest.main()

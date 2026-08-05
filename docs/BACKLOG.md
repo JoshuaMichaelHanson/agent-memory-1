@@ -109,10 +109,10 @@ Use this file as the operational checklist until the SQLite memory database is a
 
 ## Phase 10: Doctor Command
 
-- [ ] Add `agent-memory doctor --json`.
-- [ ] Check database path, existence, schema version, WAL, FTS, read/write health, ignored live DB files, and tracked export presence.
-- [ ] Report warnings separately from failures.
-- [ ] Add healthy and unhealthy doctor tests.
+- [x] Add `agent-memory doctor --json`.
+- [x] Check database path, existence, schema version, WAL, FTS, read/write health, ignored live DB files, and tracked export presence.
+- [x] Report warnings separately from failures.
+- [x] Add healthy and unhealthy doctor tests.
 
 ## Phase 11: Complete Snapshot Coverage
 

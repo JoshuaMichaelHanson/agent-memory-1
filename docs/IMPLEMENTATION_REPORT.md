@@ -107,3 +107,7 @@ Next work is documented in docs/PRODUCTION_READINESS_ROADMAP.md. The order is se
 ## Phase 9 Addendum
 
 Phase 9 added best-effort secret guardrails for put, mirror-file, and import-json. Sensitive-looking content is blocked by default with a validation error, and --allow-sensitive is available for intentional local-only storage. Scanner details are documented in docs/SECRET_GUARDRAILS.md.
+
+## Phase 10 Addendum
+
+Phase 10 added gent-memory doctor, a diagnostic command that reports setup health separately from command execution. It checks database path resolution, existence, schema version, WAL, search backend, read/write viability, live DB ignore policy, tracked exports, and JSON snapshot restore. Details are documented in docs/DOCTOR.md.
