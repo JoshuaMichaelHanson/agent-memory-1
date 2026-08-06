@@ -371,6 +371,27 @@ class ServicePutTests(unittest.TestCase):
         self.assertIn("SQLite is canonical.", text)
         self.assertNotIn("Low value note.", text)
 
+    def test_exports_use_portable_project_local_database_label(self) -> None:
+        root = self.db_path().parent
+        path = root / ".agent-memory" / "memory.db"
+        service = MemoryService(path)
+        service.put(
+            MemoryInput(
+                project="demo",
+                kind="decision",
+                memory_key="database-choice",
+                content="Use SQLite.",
+            )
+        )
+        markdown_output = root / "MEMORY.generated.md"
+        snapshot_output = root / "agent-memory.snapshot.json"
+
+        service.export_markdown(project="demo", output_path=markdown_output)
+        service.export_json_snapshot(project="demo", output_path=snapshot_output)
+
+        self.assertIn("<!-- Source: .agent-memory/memory.db -->", markdown_output.read_text(encoding="utf-8"))
+        payload = json.loads(snapshot_output.read_text(encoding="utf-8"))
+        self.assertEqual(payload["source_database"], ".agent-memory/memory.db")
 
     def test_json_snapshot_export_and_import_are_idempotent_for_keyed_memories(self) -> None:
         source_path = self.db_path()

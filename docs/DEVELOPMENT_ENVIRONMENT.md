@@ -10,7 +10,7 @@ Use a project-local virtual environment for development, but do not make the `ag
 - Developers install a compatible Python through the OS, Python.org, pyenv, uv, asdf, mise, Homebrew, winget, or another tool.
 - The project creates `.venv` from that interpreter.
 - Dependencies are installed into `.venv` with `pip install -e ".[dev]"`.
-- End users install the CLI with `pipx install agent-memory` or from an installer/wheel. `pipx` creates an isolated virtual environment per CLI app.
+- End users install the CLI with `pipx` from the GitHub repository, a local checkout, or a wheel. If the app is later published to PyPI, `pipx install agent-memory` becomes the shortest install command. `pipx` creates an isolated virtual environment per CLI app.
 
 ## Recommended Project Policy
 
@@ -83,18 +83,30 @@ The normal split is:
 - installers create environments
 - the application runs inside the environment it was given
 
-## End-User Install Options Later
+## End-User Install Options
 
-Good options for a CLI app are:
+For the first small-group GitHub share, install from the repository URL:
 
 ```powershell
-pipx install agent-memory
+pipx install git+https://github.com/<owner>/<repo>.git@main
 ```
 
-or, from a local checkout:
+For private repositories or SSH access:
+
+```powershell
+pipx install git+ssh://git@github.com/<owner>/<repo>.git@main
+```
+
+From a local checkout:
 
 ```powershell
 pipx install .
+```
+
+If the app is later published to PyPI:
+
+```powershell
+pipx install agent-memory
 ```
 
 For users without `pipx`, a documented venv install is still acceptable:

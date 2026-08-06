@@ -243,6 +243,7 @@ agent-memory copy --from-project my-service --from-kind decision --from-key idem
 ```
 
 Do not use global memory to override repository-specific instructions, source code, security policy, or team conventions. See `docs/CROSS_PROJECT_MEMORY.md` for the full workflow.
+
 ## Review Before Checkin
 
 Before committing memory changes:
@@ -277,6 +278,7 @@ agent-memory import-json .\docs\agent-memory.snapshot.json --db .\.agent-memory\
 agent-memory init --db .\.agent-memory\memory.db --json
 agent-memory import-json .\docs\agent-memory.snapshot.json --db .\.agent-memory\memory.db --json
 ```
+
 ## Developer Only Testing
 
 This section is for early testing by a small developer group. Remove it before sharing the project broadly.
@@ -306,7 +308,7 @@ pipx install --force C:\path\to\agent-memory-1
 A local Git repository can also be installed without GitHub:
 
 ```powershell
-pipx install git+file:///C:/Development/agent-memory-1
+pipx install git+file:///C:/path/to/agent-memory-1
 ```
 
 ### Build A Wheel Locally

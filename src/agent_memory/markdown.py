@@ -7,7 +7,7 @@ from pathlib import Path
 from .models import Memory
 
 
-def render_memory_export(*, project: str, source_database: Path, memories: list[Memory]) -> str:
+def render_memory_export(*, project: str, source_database: Path | str, memories: list[Memory]) -> str:
     lines: list[str] = [
         "<!-- GENERATED FILE. DO NOT EDIT DIRECTLY. -->",
         f"<!-- Source: {source_database} -->",

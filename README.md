@@ -64,18 +64,36 @@ agent-memory --help
 pytest
 ```
 
-### Future User Install
+### GitHub User Install
 
-For CLI tools, `pipx` is the preferred install style because it creates an isolated virtual environment per app:
+For the first small-group GitHub share, install from the repository URL:
 
 ```powershell
-pipx install agent-memory
+pipx install git+https://github.com/<owner>/<repo>.git@main
+```
+
+For private repositories or SSH access:
+
+```powershell
+pipx install git+ssh://git@github.com/<owner>/<repo>.git@main
+```
+
+Refresh after repository changes:
+
+```powershell
+pipx install --force git+https://github.com/<owner>/<repo>.git@main
 ```
 
 From a local checkout:
 
 ```powershell
 pipx install .
+```
+
+If the app is later published to PyPI:
+
+```powershell
+pipx install agent-memory
 ```
 
 ## Quick Start
@@ -206,6 +224,7 @@ Copies one selected memory into another project in the same database. Copy by ID
 agent-memory copy --from-project demo --from-kind decision --from-key database-choice --to-project personal-patterns --agent codex --json
 agent-memory copy --id 42 --to-project global --to-key reusable-pattern --agent codex --json
 ```
+
 ### `delete`
 
 Deletes by ID or compound key. Use `--yes` in scripts and agent workflows.
@@ -289,6 +308,7 @@ Initialization attempts to create an FTS5 external-content table and synchroniza
 Project-local databases remain the recommended default. For reusable context, use explicit project names such as `global`, `personal-patterns`, or `org-patterns`, and search them only when the current project memory is insufficient. Use `copy` to promote a selected memory into another project instead of making repositories silently inherit global context.
 
 See `docs/CROSS_PROJECT_MEMORY.md` for the full workflow and privacy tradeoffs.
+
 ## Markdown Mirroring and Export
 
 `mirror-file` stores exact UTF-8 file snapshots and creates a new mirrored revision only when file content changes. It does not summarize Markdown or convert sections into semantic memories.
@@ -322,6 +342,7 @@ Copyable skill templates are available for agents that support reusable skills:
 - `examples/claude-skill-template/agent-memory/SKILL.md`
 
 See `docs/AGENT_MEMORY_SKILL_TEMPLATES.md` for install paths, expected workflows, safety rules, and test prompts.
+
 ## MCP Migration Design
 
 A future MCP adapter should instantiate `MemoryService` and call service methods directly. It should not shell out to the CLI, parse human output, duplicate SQL, duplicate validation, or maintain a second data model.

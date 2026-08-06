@@ -16,6 +16,13 @@ from .models import Memory, MemoryInput, PutResult, content_sha256, memory_from_
 from .security import validate_no_sensitive_content
 
 MAX_LIMIT = 100
+PROJECT_LOCAL_DATABASE_LABEL = ".agent-memory/memory.db"
+
+
+def export_source_database_label(database_path: Path) -> str:
+    if database_path.name == "memory.db" and database_path.parent.name == ".agent-memory":
+        return PROJECT_LOCAL_DATABASE_LABEL
+    return str(database_path)
 
 
 class MemoryService:
@@ -437,7 +444,7 @@ class MemoryService:
                 raise DatabaseError(f"Could not export memories from database: {self.database_path}") from exc
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        markdown = render_memory_export(project=project, source_database=self.database_path, memories=memories)
+        markdown = render_memory_export(project=project, source_database=export_source_database_label(self.database_path), memories=memories)
         tmp_path = output_path.with_name(f"{output_path.name}.{os.getpid()}.tmp")
         try:
             tmp_path.write_text(markdown, encoding="utf-8")
@@ -477,7 +484,7 @@ class MemoryService:
         snapshot = {
             "format": "agent-memory.snapshot.v1",
             "project": project,
-            "source_database": str(self.database_path),
+            "source_database": export_source_database_label(self.database_path),
             "exported_at": current_utc_timestamp(),
             "memories": [memory.to_dict() for memory in memories],
             "mirrored_files": mirrored_files,

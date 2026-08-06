@@ -30,7 +30,7 @@ Insert these durable memories during cutover.
 - Content:
 
 ```text
-Repository path is C:\Development\agent-memory-1. Git is initialized. IntelliJ MCP is configured in .codex/config.toml and resolved the project as module agent-memory-1.
+Git is initialized for this checkout. IntelliJ MCP was used for early local development, and future agents should prefer current repository files plus SQLite memory over stale bootstrap notes.
 ```
 
 ### sqlite-canonical-store

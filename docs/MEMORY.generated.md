@@ -1,9 +1,9 @@
 <!-- GENERATED FILE. DO NOT EDIT DIRECTLY. -->
-<!-- Source: C:\Development\agent-memory-1\.agent-memory\memory.db -->
+<!-- Source: .agent-memory/memory.db -->
 
 # Agent Memory: agent-memory-1
 
-Generated: 2026-08-05T19:20:22Z
+Generated: 2026-08-06T20:07:54Z
 
 ## Architecture
 
@@ -54,10 +54,10 @@ The CLI remains a thin adapter over reusable service/database logic so a future 
 - ID: 5
 - Importance: 5
 - Scope: project
-- Updated: 2026-08-04T23:04:18.609Z
+- Updated: 2026-08-06T20:04:41.729Z
 - Tags: pytest, venv, windows
 
-Run the full test suite with .\.venv\Scripts\python.exe -m pytest from C:\Development\agent-memory-1. The current Windows checkout reports a non-failing pytest cache warning.
+Run the full test suite with .\.venv\Scripts\python.exe -m pytest from the repository root. The current Windows checkout reports a non-failing pytest cache warning.
 
 ## Constraint
 
@@ -102,10 +102,10 @@ Phase 10 is complete. The CLI includes agent-memory doctor, which reports ok for
 - ID: 1
 - Importance: 4
 - Scope: project
-- Updated: 2026-08-04T23:04:17.974Z
+- Updated: 2026-08-06T20:04:41.740Z
 - Tags: bootstrap, intellij, repo
 
-Repository path is C:\Development\agent-memory-1. Git is initialized. IntelliJ MCP is configured in .codex/config.toml and resolved the project as module agent-memory-1.
+Git is initialized for this checkout. IntelliJ MCP was used for early local development, and future agents should prefer current repository files plus SQLite memory over stale bootstrap notes.
 
 ## Security
 
@@ -120,6 +120,16 @@ Repository path is C:\Development\agent-memory-1. Git is initialized. IntelliJ M
 Phase 9 is complete. The service layer enforces best-effort secret guardrails for put, mirror-file, and import-json before database mutation. The CLI exposes an explicit allow-sensitive override for intentional local-only storage. Detection covers obvious private key blocks, credentialed URLs, bearer token headers, secret-like assignments, AWS access key IDs, and GitHub token shapes, but remains best-effort and does not replace review.
 
 ## Workflow
+
+### github-first-checkin-cleanup
+
+- ID: 17
+- Importance: 5
+- Scope: project
+- Updated: 2026-08-06T20:04:41.734Z
+- Tags: cleanup, github, release
+
+Before the first GitHub share, keep dist artifacts out of Git, document GitHub-first pipx installs, remove machine-specific paths from tracked docs and memory exports, run pytest, run agent-memory doctor, and verify JSON snapshot restore.
 
 ### phase-16-agent-skill-templates
 
