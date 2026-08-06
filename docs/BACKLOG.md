@@ -154,11 +154,11 @@ Use this file as the operational checklist until the SQLite memory database is a
 
 ## Phase 16: Codex and Claude Skill Templates
 
-- [ ] Create a Codex skill template that teaches agents to use the global `agent-memory` CLI.
-- [ ] Create a Claude skill/template equivalent for the same CLI workflow.
-- [ ] Include install, discovery, search-before-work, write-memory, mirror-file, and export-before-checkin guidance.
-- [ ] Include safety rules for secrets, advisory-only memory, and user/repo instruction precedence.
-- [ ] Add examples showing how a developer can reuse the templates across projects.
+- [x] Create a Codex skill template that teaches agents to use the global `agent-memory` CLI.
+- [x] Create a Claude skill/template equivalent for the same CLI workflow.
+- [x] Include install, discovery, search-before-work, write-memory, mirror-file, and export-before-checkin guidance.
+- [x] Include safety rules for secrets, advisory-only memory, and user/repo instruction precedence.
+- [x] Add examples showing how a developer can reuse the templates across projects.
 
 ## Phase 17: Schema Migration Framework
 

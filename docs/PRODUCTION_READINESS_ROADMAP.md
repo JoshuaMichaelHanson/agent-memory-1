@@ -99,6 +99,8 @@ Support useful memory reuse without making global memory the default.
 
 ### Phase 16: Codex and Claude Skill Templates
 
+Phase 16 status: complete. See `docs/AGENT_MEMORY_SKILL_TEMPLATES.md`.
+
 Create reusable agent templates that teach agents to use the global CLI even when repository instructions are missing.
 
 - Create a Codex skill template for `agent-memory` CLI usage.

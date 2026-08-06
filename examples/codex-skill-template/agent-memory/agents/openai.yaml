@@ -1,0 +1,3 @@
+display_name: Agent Memory
+short_description: Use the agent-memory CLI for durable project context.
+default_prompt: Search project memory before substantial work and update durable memory before finishing.

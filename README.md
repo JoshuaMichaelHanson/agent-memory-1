@@ -30,7 +30,7 @@ The core version 1 CLI commands are implemented:
 - `export-json`
 - `import-json`
 
-Phase 15 adds explicit cross-project memory sharing guidance and a `copy` command for promoting selected memories into reusable projects.
+Phase 16 adds copyable Codex and Claude skill templates for teaching agents to use a global `agent-memory` CLI.
 
 ## Installation
 
@@ -314,6 +314,14 @@ Reusable snippets are available in:
 - `examples/AGENTS-memory-section.md`
 - `examples/CLAUDE-memory-section.md`
 
+## Agent Skill Templates
+
+Copyable skill templates are available for agents that support reusable skills:
+
+- `examples/codex-skill-template/agent-memory/SKILL.md`
+- `examples/claude-skill-template/agent-memory/SKILL.md`
+
+See `docs/AGENT_MEMORY_SKILL_TEMPLATES.md` for install paths, expected workflows, safety rules, and test prompts.
 ## MCP Migration Design
 
 A future MCP adapter should instantiate `MemoryService` and call service methods directly. It should not shell out to the CLI, parse human output, duplicate SQL, duplicate validation, or maintain a second data model.
@@ -352,7 +360,7 @@ python -m agent_memory init --db .\.agent-memory\memory.db --json
 python -m agent_memory import-json .\docs\agent-memory.snapshot.json --db .\.agent-memory\memory.db --json
 ```
 
-See `docs/MEMORY_SYNC.md` for the full workflow. See `docs/DOCTOR.md` for diagnostics. See `docs/AGENT_ONBOARDING.md` for global CLI agent-bootstrap guidance. See `docs/PRODUCTION_USAGE.md` for production-safe memory practices, repository bootstrap examples, and Markdown mirroring guidance. See `docs/CROSS_PROJECT_MEMORY.md` for explicit cross-project and global memory workflows.
+See `docs/MEMORY_SYNC.md` for the full workflow. See `docs/DOCTOR.md` for diagnostics. See `docs/AGENT_ONBOARDING.md` for global CLI agent-bootstrap guidance. See `docs/PRODUCTION_USAGE.md` for production-safe memory practices, repository bootstrap examples, and Markdown mirroring guidance. See `docs/CROSS_PROJECT_MEMORY.md` for explicit cross-project and global memory workflows. See `docs/AGENT_MEMORY_SKILL_TEMPLATES.md` for Codex and Claude skill templates.
 
 ## Development
 

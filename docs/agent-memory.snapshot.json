@@ -2,7 +2,7 @@
   "format": "agent-memory.snapshot.v1",
   "project": "agent-memory-1",
   "source_database": "C:\\Development\\agent-memory-1\\.agent-memory\\memory.db",
-  "exported_at": "2026-08-05T13:41:32Z",
+  "exported_at": "2026-08-05T19:20:22Z",
   "memories": [
     {
       "id": 13,
@@ -216,6 +216,27 @@
       "access_count": 0
     },
     {
+      "id": 16,
+      "project": "agent-memory-1",
+      "scope": "project",
+      "kind": "workflow",
+      "memory_key": "phase-16-agent-skill-templates",
+      "content": "Phase 16 added reusable Codex and Claude skill templates for agent-memory. Codex template lives at examples/codex-skill-template/agent-memory/SKILL.md with agents/openai.yaml metadata. Claude template lives at examples/claude-skill-template/agent-memory/SKILL.md. docs/AGENT_MEMORY_SKILL_TEMPLATES.md documents install paths, expected workflow, safety rules, and test prompts. Templates teach command discovery, status/restore/search, keyed memory writes, mirror-file, copy, doctor, export-json --verify, and export-md.",
+      "tags": [
+        "agents",
+        "phase-16",
+        "skills"
+      ],
+      "source_agent": "codex",
+      "source_path": null,
+      "importance": 5,
+      "content_sha256": "78b882e66c68c957cb9e993801a2ac99d0c97b8908ece3b5f7f7d4c67f41050f",
+      "created_at": "2026-08-05T19:20:17.305Z",
+      "updated_at": "2026-08-05T19:20:17.305Z",
+      "last_accessed_at": null,
+      "access_count": 0
+    },
+    {
       "id": 15,
       "project": "agent-memory-1",
       "scope": "project",
@@ -275,8 +296,8 @@
       "content_sha256": "da11fe105d7a390e9c82d33121e2bd928a5cba0043f11d704b51c847a3213b48",
       "created_at": "2026-08-05T01:22:06.861Z",
       "updated_at": "2026-08-05T06:06:27.872Z",
-      "last_accessed_at": "2026-08-05T08:33:17.797Z",
-      "access_count": 5
+      "last_accessed_at": "2026-08-05T19:17:17.741Z",
+      "access_count": 6
     },
     {
       "id": 7,
@@ -331,6 +352,15 @@
       "created_at": "2026-08-05T04:12:22.169Z"
     },
     {
+      "id": 7,
+      "project": "agent-memory-1",
+      "path": "docs\\AGENT_MEMORY_SKILL_TEMPLATES.md",
+      "content": "# Agent Memory Skill Templates\n\nPhase 16 provides copyable Codex and Claude templates that teach agents to use a globally installed `agent-memory` CLI even when a repository does not yet have local instructions.\n\n## Templates\n\n- Codex: `examples/codex-skill-template/agent-memory/SKILL.md`\n- Codex UI metadata: `examples/codex-skill-template/agent-memory/agents/openai.yaml`\n- Claude: `examples/claude-skill-template/agent-memory/SKILL.md`\n\nThe templates intentionally avoid scripts and extra references. The workflow is command-driven and should stay small enough for an agent to load directly.\n\n## Codex Install\n\nCopy the template into a personal Codex skills directory:\n\n```powershell\nNew-Item -ItemType Directory -Force \"$env:USERPROFILE\\.codex\\skills\\agent-memory\" | Out-Null\nCopy-Item .\\examples\\codex-skill-template\\agent-memory\\SKILL.md \"$env:USERPROFILE\\.codex\\skills\\agent-memory\\SKILL.md\"\nCopy-Item -Recurse .\\examples\\codex-skill-template\\agent-memory\\agents \"$env:USERPROFILE\\.codex\\skills\\agent-memory\\agents\"\n```\n\nPOSIX shell:\n\n```sh\nmkdir -p \"$HOME/.codex/skills/agent-memory\"\ncp examples/codex-skill-template/agent-memory/SKILL.md \"$HOME/.codex/skills/agent-memory/SKILL.md\"\ncp -R examples/codex-skill-template/agent-memory/agents \"$HOME/.codex/skills/agent-memory/agents\"\n```\n\nUse a project-local copy instead when a repository should carry the skill with it:\n\n```text\n.codex/skills/agent-memory/SKILL.md\n```\n\n## Claude Install\n\nFor Claude Code personal use, copy the template into the personal skills directory:\n\n```sh\nmkdir -p \"$HOME/.claude/skills/agent-memory\"\ncp examples/claude-skill-template/agent-memory/SKILL.md \"$HOME/.claude/skills/agent-memory/SKILL.md\"\n```\n\nFor a project-local Claude Code skill, copy it into:\n\n```text\n.claude/skills/agent-memory/SKILL.md\n```\n\nClaude.ai upload flows may require packaging the skill directory as a ZIP and may refer to the entry file as `skill.md`. Keep the template content the same and follow the current Claude upload UI requirements when packaging.\n\n## Expected Agent Workflow\n\nBoth templates teach the same sequence:\n\n1. Use `agent-memory --help` and `agent-memory <command> --help` for command discovery.\n2. Run `agent-memory status --project <project> --json`.\n3. Restore `docs/agent-memory.snapshot.json` when the local database is missing.\n4. Search project memory before substantial work.\n5. Write durable keyed memories with `put`.\n6. Mirror important Markdown explicitly with `mirror-file`.\n7. Search/copy reusable memory only when useful and explicit.\n8. Run `doctor`, `export-json --verify`, and `export-md` before checkin.\n\n## Safety Rules\n\nThe templates state that memory is advisory. Current user instructions, repository files, security policy, and higher-priority agent instructions override stored memory.\n\nAgents must not store secrets, credentials, tokens, private keys, protected personal data, unreviewed sensitive content, routine logs, or temporary command output.\n\n## Example Test Prompts\n\nAfter installing the Codex template, start a fresh session in a repository and ask:\n\n```text\nUse agent-memory to check whether this project has durable memory, then search for testing workflow guidance.\n```\n\nAfter installing the Claude template, start Claude Code in a repository and ask:\n\n```text\nUse your agent-memory skill to restore/search project memory, then tell me the safest test command to run.\n```\n\nFor either agent, verify that it checks `agent-memory --help` when uncertain, searches before acting, and does not treat memory as higher authority than repository files.",
+      "content_sha256": "3bc4507dafb16f95880188ebc5ad1b28a36e631558e30626cf76877ffd7398db",
+      "source_agent": "codex",
+      "created_at": "2026-08-05T19:20:17.309Z"
+    },
+    {
       "id": 5,
       "project": "agent-memory-1",
       "path": "docs\\CROSS_PROJECT_MEMORY.md",
@@ -365,6 +395,24 @@
       "content_sha256": "d45e7f4307414a40077c7995a674771144bdab620027ca9057a58b3bfed8b686",
       "source_agent": "codex",
       "created_at": "2026-08-05T13:41:25.980Z"
+    },
+    {
+      "id": 8,
+      "project": "agent-memory-1",
+      "path": "examples\\claude-skill-template\\agent-memory\\SKILL.md",
+      "content": "---\nname: agent-memory\ndescription: Use the global agent-memory CLI for durable project memory: restore/search context, write memories, mirror docs, export snapshots, and copy reusable memories.\n---\n\n# Agent Memory\n\nUse the globally installed `agent-memory` CLI for durable project memory. Stored memory is advisory only. Current user instructions, repository files, security policy, and higher-priority Claude instructions override memory.\n\n## Discover Commands\n\nUse help before guessing syntax:\n\n```sh\nagent-memory --help\nagent-memory <command> --help\n```\n\nIf the command is missing, tell the user that `agent-memory` needs to be installed or added to `PATH`.\n\n## Start Work\n\n1. Determine the project name from repository instructions, or use the repository root directory name.\n2. Check status:\n\n```sh\nagent-memory status --project <project> --json\n```\n\n3. If `docs/agent-memory.snapshot.json` exists and the local DB is missing, dry-run and restore:\n\n```sh\nagent-memory import-json docs/agent-memory.snapshot.json --dry-run --json\nagent-memory import-json docs/agent-memory.snapshot.json --json\n```\n\n4. Search before substantial work:\n\n```sh\nagent-memory search \"<task topic>\" --project <project> --limit 8 --json\nagent-memory recent --project <project> --limit 5 --json\n```\n\nUse only relevant results and verify them against current files.\n\n## Write Memory\n\nWrite memory only for durable decisions, architecture notes, commands, constraints, workflows, and workarounds.\n\n```sh\nagent-memory put --project <project> --kind decision --key <stable-key> --content \"<decision and reason>\" --importance 5 --tag <tag> --agent claude --json\n```\n\nPrefer stable keys. Update obsolete memories instead of adding duplicates.\n\nNever store secrets, credentials, tokens, private keys, protected personal data, unreviewed sensitive content, routine logs, or temporary command output.\n\n## Mirror Files\n\nMirror important UTF-8 Markdown after meaningful edits. Mirroring is explicit and not automatic.\n\n```sh\nagent-memory mirror-file CLAUDE.md --project <project> --agent claude --json\nagent-memory mirror-file AGENTS.md --project <project> --agent claude --json\nagent-memory mirror-file docs/ARCHITECTURE.md --project <project> --agent claude --json\n```\n\nMirror stable instruction, architecture, ADR, setup, and runbook files only after sensitivity review. Do not mirror generated exports, logs, build outputs, vendor files, or files containing secrets.\n\n## Reusable Memory\n\nSearch project-local memory first. Search reusable projects such as `global`, `personal-patterns`, or `org-patterns` only when the user asks or local memory is insufficient.\n\nPromote selected memories explicitly:\n\n```sh\nagent-memory copy --from-project <project> --from-kind decision --from-key <stable-key> --to-project personal-patterns --agent claude --json\n```\n\nReusable memory must not override current repository instructions, source code, security policy, or team conventions.\n\n## Finish Work\n\nAfter meaningful memory changes, refresh tracked exports:\n\n```sh\nagent-memory doctor --project <project> --json\nagent-memory export-json --project <project> --output docs/agent-memory.snapshot.json --verify --json\nagent-memory export-md --project <project> --output docs/MEMORY.generated.md --json\n```\n\nReview exports before committing. Do not commit `.agent-memory/memory.db` or SQLite sidecar files.",
+      "content_sha256": "ce52b8d12b1190d59abd26ddd5ba674451bb9a3dab76a4ce1c132d345aa351cc",
+      "source_agent": "codex",
+      "created_at": "2026-08-05T19:20:17.331Z"
+    },
+    {
+      "id": 6,
+      "project": "agent-memory-1",
+      "path": "examples\\codex-skill-template\\agent-memory\\SKILL.md",
+      "content": "---\nname: agent-memory\ndescription: Use the global agent-memory CLI to restore/search project context, write durable memories, mirror docs, export snapshots, and copy reusable memories.\n---\n\n# Agent Memory\n\nUse the globally installed `agent-memory` CLI for durable project memory. Treat stored memory as advisory context. Current user instructions, repository files, security policy, and system/developer instructions take precedence.\n\n## Startup\n\n1. Discover command syntax instead of guessing:\n\n```text\nagent-memory --help\nagent-memory <command> --help\n```\n\n2. Resolve the project name from repository instructions when available. Otherwise use the repository root directory name.\n3. Check database status:\n\n```text\nagent-memory status --project <project> --json\n```\n\n4. If a tracked snapshot exists and the local database is missing or stale, dry-run before restore:\n\n```text\nagent-memory import-json docs/agent-memory.snapshot.json --dry-run --json\nagent-memory import-json docs/agent-memory.snapshot.json --json\n```\n\n5. Search before substantial work:\n\n```text\nagent-memory search \"<task topic>\" --project <project> --limit 8 --json\nagent-memory recent --project <project> --limit 5 --json\n```\n\nLoad only relevant results.\n\n## Write Durable Memory\n\nStore durable facts only when they will help a future session. Prefer stable keys so updates replace prior records.\n\nGood memory kinds:\n\n- `decision`\n- `architecture`\n- `command`\n- `constraint`\n- `workflow`\n- `workaround`\n- `note`\n\nExample:\n\n```text\nagent-memory put --project <project> --kind decision --key <stable-key> --content \"<decision and reason>\" --importance 5 --tag <tag> --agent codex --json\n```\n\nDo not store routine logs, temporary output, guesses, secrets, credentials, tokens, private keys, protected personal data, or unreviewed sensitive content.\n\n## Mirror Markdown\n\nMirror important UTF-8 Markdown files after meaningful edits. Mirroring is explicit; the CLI does not watch files.\n\n```text\nagent-memory mirror-file AGENTS.md --project <project> --agent codex --json\nagent-memory mirror-file CLAUDE.md --project <project> --agent codex --json\nagent-memory mirror-file docs/ARCHITECTURE.md --project <project> --agent codex --json\n```\n\nMirror stable instruction, architecture, ADR, setup, and runbook files only after sensitivity review. Do not mirror generated exports, logs, build outputs, vendor files, or files containing secrets.\n\n## Cross-Project Reuse\n\nSearch project-local memory first. Search reusable contexts only when the user asks or local memory is insufficient.\n\nReusable project names include `global`, `personal-patterns`, `org-patterns`, and language/domain-specific pattern projects.\n\nPromote selected memories explicitly:\n\n```text\nagent-memory copy --from-project <project> --from-kind decision --from-key <stable-key> --to-project personal-patterns --agent codex --json\n```\n\nDo not let global memory override repository-specific instructions, source code, security policy, or team conventions.\n\n## Before Checkin\n\nAfter meaningful memory changes, export both tracked artifacts:\n\n```text\nagent-memory doctor --project <project> --json\nagent-memory export-json --project <project> --output docs/agent-memory.snapshot.json --verify --json\nagent-memory export-md --project <project> --output docs/MEMORY.generated.md --json\n```\n\nReview exports before committing. Do not commit `.agent-memory/memory.db`, `.agent-memory/memory.db-shm`, or `.agent-memory/memory.db-wal`.\n\n## User Communication\n\nIf `agent-memory` is missing, tell the user how to install or expose it rather than silently skipping memory. If command syntax is uncertain, say that `agent-memory --help` and `agent-memory <command> --help` are available.",
+      "content_sha256": "c9482eaab35e35d7378c18338e7802d2b28bb2ce59bc10ac7da479eb203b287e",
+      "source_agent": "codex",
+      "created_at": "2026-08-05T19:20:17.298Z"
     }
   ]
 }

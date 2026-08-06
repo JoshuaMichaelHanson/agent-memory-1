@@ -3,7 +3,7 @@
 
 # Agent Memory: agent-memory-1
 
-Generated: 2026-08-05T13:41:32Z
+Generated: 2026-08-05T19:20:22Z
 
 ## Architecture
 
@@ -120,6 +120,16 @@ Repository path is C:\Development\agent-memory-1. Git is initialized. IntelliJ M
 Phase 9 is complete. The service layer enforces best-effort secret guardrails for put, mirror-file, and import-json before database mutation. The CLI exposes an explicit allow-sensitive override for intentional local-only storage. Detection covers obvious private key blocks, credentialed URLs, bearer token headers, secret-like assignments, AWS access key IDs, and GitHub token shapes, but remains best-effort and does not replace review.
 
 ## Workflow
+
+### phase-16-agent-skill-templates
+
+- ID: 16
+- Importance: 5
+- Scope: project
+- Updated: 2026-08-05T19:20:17.305Z
+- Tags: agents, phase-16, skills
+
+Phase 16 added reusable Codex and Claude skill templates for agent-memory. Codex template lives at examples/codex-skill-template/agent-memory/SKILL.md with agents/openai.yaml metadata. Claude template lives at examples/claude-skill-template/agent-memory/SKILL.md. docs/AGENT_MEMORY_SKILL_TEMPLATES.md documents install paths, expected workflow, safety rules, and test prompts. Templates teach command discovery, status/restore/search, keyed memory writes, mirror-file, copy, doctor, export-json --verify, and export-md.
 
 ### phase-15-cross-project-memory
 
