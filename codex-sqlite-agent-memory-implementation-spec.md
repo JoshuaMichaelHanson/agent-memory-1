@@ -237,7 +237,7 @@ CREATE TABLE IF NOT EXISTS schema_metadata (
 );
 
 INSERT INTO schema_metadata(key, value)
-VALUES ('schema_version', '1')
+VALUES ('schema_version', '2')
 ON CONFLICT(key) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS memories (
@@ -298,8 +298,11 @@ CREATE TABLE IF NOT EXISTS mirrored_files (
     created_at TEXT NOT NULL DEFAULT (
         strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
     ),
+    updated_at TEXT NOT NULL DEFAULT (
+        strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    ),
 
-    UNIQUE(project, path, content_sha256)
+    UNIQUE(project, path)
 );
 
 CREATE INDEX IF NOT EXISTS idx_mirrored_files_project_path
@@ -922,12 +925,18 @@ Behavior:
 
 - read the complete file as UTF-8
 - compute a normalized SHA-256 hash
-- insert a new revision only when the `(project, path, hash)` combination is new
-- report `inserted` or `unchanged`
+- keep one current row per `(project, path)`; insert on first mirror, update when content changes, and leave it unchanged when the hash matches
+- report `inserted`, `updated`, or `unchanged`
 - store the path relative to the project root when possible
 - do not automatically turn every Markdown section into a semantic memory
 
-This command is for exact document snapshots, not semantic memory extraction.
+This command is for the current exact document content, not semantic memory extraction. Git can retain revision history. Schema version 2 migrates version 1 mirrors by keeping the highest-ID row per path after backing up the old database. Legacy JSON snapshots with multiple revisions per path import the highest-ID revision. The older format cannot identify an A → B → A return to A, because version 1 did not record the last mirrored state.
+
+## `import-json` mirrored Markdown restore
+
+The CLI imports snapshot rows into SQLite and restores mirrored `.md` files relative to the detected project root. Create missing files without prompting. Leave existing files untouched when their normalized UTF-8 content matches the snapshot. For differing files, ask the user before overwriting in an interactive terminal. In a noninteractive run, leave differing files in place and report conflicts; `--overwrite-files` explicitly permits replacement. `--no-restore-files` performs database-only import. `--dry-run` does not write files or prompt.
+
+Never restore an absolute path, a path with `..`, a path through a symlink outside the project root, or a path inside `.git` or `.agent-memory`. Snapshot verification and other service callers that do not supply a restore root remain database-only. The JSON result reports file actions, conflicts, and failures separately from database row counts.
 
 Do not scan arbitrary directories in the first version.
 
@@ -1349,9 +1358,9 @@ Verify:
 
 Verify:
 
-- first revision inserts
+- first mirror inserts
 - identical content is unchanged
-- changed content creates a new revision
+- changed content updates the same row, including a return to earlier content
 - UTF-8 handling
 - missing file behavior
 
@@ -1540,7 +1549,7 @@ Implement in this order:
 7. search filters and ranking
 8. CLI human output
 9. CLI JSON output and stable errors
-10. mirrored file revisions
+10. current mirrored files
 11. Markdown export
 12. tests
 13. README and agent bootstrap examples

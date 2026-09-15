@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-memory"
-version = "0.1.0"
+version = "0.2.0"
 description = "A small SQLite-backed CLI for durable AI-agent memory."
 readme = "README.md"
 requires-python = ">=3.11"

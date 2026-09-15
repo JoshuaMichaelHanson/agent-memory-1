@@ -199,7 +199,7 @@ agent-memory mirror-file .\AGENTS.md --project my-service --agent codex --json
 agent-memory mirror-file .\docs\ARCHITECTURE.md --project my-service --agent codex --json
 ```
 
-After mirroring meaningful changes, export the JSON snapshot so another computer can restore the mirrored revisions:
+After mirroring meaningful changes, export the JSON snapshot so another computer can restore the current mirrored content in SQLite:
 
 ```powershell
 agent-memory export-json --project my-service --output .\docs\agent-memory.snapshot.json --verify --json
@@ -279,6 +279,8 @@ agent-memory init --db .\.agent-memory\memory.db --json
 agent-memory import-json .\docs\agent-memory.snapshot.json --db .\.agent-memory\memory.db --json
 ```
 
+Run the import from the project root so mirrored Markdown is restored there. If a tracked file differs from the snapshot, an interactive terminal prompts before overwriting; noninteractive imports report and skip conflicts. Use `--overwrite-files` only when the snapshot should replace those files, or `--no-restore-files` for database-only restore.
+
 ## Developer Only Testing
 
 This section is for early testing by a small developer group. Remove it before sharing the project broadly.
@@ -323,17 +325,17 @@ A better pre-release test is to build a wheel and install that same artifact els
 The wheel should appear under `dist\` with a name like:
 
 ```text
-agent_memory-0.1.0-py3-none-any.whl
+agent_memory-0.2.0-py3-none-any.whl
 ```
 
 `py3-none-any` means the package is pure Python and should install on Windows, macOS, and Linux. Copy the wheel to the other computer and install it:
 
 ```sh
-pipx install --force ./agent_memory-0.1.0-py3-none-any.whl
+pipx install --force ./agent_memory-0.2.0-py3-none-any.whl
 agent-memory --help
 ```
 
-Because the version is currently fixed at `0.1.0`, use `--force` during repeated testing or bump the version in `pyproject.toml` when a cleaner install history matters.
+Use `--force` during repeated testing of the same build, or bump the version in `pyproject.toml` for the next release.
 
 ### Windows Build To macOS Install
 
@@ -357,19 +359,19 @@ pipx --version
 Install with the default `python3` if it is 3.11 or newer:
 
 ```sh
-pipx install --force --python python3 ./agent_memory-0.1.0-py3-none-any.whl
+pipx install --force --python python3 ./agent_memory-0.2.0-py3-none-any.whl
 ```
 
 If the Mac has multiple Python versions, be explicit:
 
 ```sh
-pipx install --force --python python3.12 ./agent_memory-0.1.0-py3-none-any.whl
+pipx install --force --python python3.12 ./agent_memory-0.2.0-py3-none-any.whl
 ```
 
 or use the full Homebrew path when needed:
 
 ```sh
-pipx install --force --python /opt/homebrew/bin/python3.12 ./agent_memory-0.1.0-py3-none-any.whl
+pipx install --force --python /opt/homebrew/bin/python3.12 ./agent_memory-0.2.0-py3-none-any.whl
 ```
 
 The important distinction is:

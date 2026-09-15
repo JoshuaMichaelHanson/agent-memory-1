@@ -236,7 +236,7 @@ agent-memory delete --project demo --kind decision --key database-choice --yes -
 
 ### `mirror-file`
 
-Stores exact UTF-8 file revisions in `mirrored_files`. It does not extract semantic memories. By default, mirrored file content is checked for best-effort sensitive-value patterns.
+Stores the current exact UTF-8 content for each project and path in `mirrored_files`. Changed content updates the same row; Git can retain revision history. It does not extract semantic memories. By default, mirrored file content is checked for best-effort sensitive-value patterns.
 
 ```powershell
 agent-memory mirror-file .\AGENTS.md --project demo --agent codex --json
@@ -260,7 +260,7 @@ agent-memory export-json --project demo --output .\docs\agent-memory.snapshot.js
 
 ### `import-json`
 
-Imports a JSON snapshot into the configured SQLite database. Keyed memories are idempotent on import; unkeyed memories import as new rows on each real import. By default, imported memory content is checked for best-effort sensitive-value patterns. Use `--dry-run` to validate and classify an import without mutating the database.
+Imports a JSON snapshot into the configured SQLite database and recreates missing mirrored Markdown files under the project root. Existing files with the same normalized content are left alone. A differing file triggers an interactive overwrite prompt; noninteractive runs skip it and report the conflict. Use `--overwrite-files` to explicitly replace differing files without a prompt, or `--no-restore-files` for database-only import. `--dry-run` validates and classifies without writing or prompting. Keyed memories are idempotent; unkeyed memories import as new rows on each real import. Imported content is checked for best-effort sensitive-value patterns.
 
 ```powershell
 agent-memory import-json .\docs\agent-memory.snapshot.json --dry-run --json
@@ -311,11 +311,11 @@ See `docs/CROSS_PROJECT_MEMORY.md` for the full workflow and privacy tradeoffs.
 
 ## Markdown Mirroring and Export
 
-`mirror-file` stores exact UTF-8 file snapshots and creates a new mirrored revision only when file content changes. It does not summarize Markdown or convert sections into semantic memories.
+`mirror-file` stores one current UTF-8 snapshot per project and path. Repeated identical content is unchanged; changed content updates the row. It does not summarize Markdown or convert sections into semantic memories. JSON import restores mirrored `.md` files as described above; paths outside the project root and non-Markdown paths are not written to disk.
 
 `export-md` writes generated Markdown for human review. The generated file starts with a warning and should not be treated as canonical.
 
-`export-json` writes the portable restore artifact, including semantic memories and mirrored file revisions. `export-json --verify` restores the written artifact into a temporary SQLite database and reports restore counts. `import-json --dry-run` validates and classifies a restore without mutation. Keyed memories are idempotent; mirrored file revisions are idempotent by `project + path + content_sha256`; unkeyed memories import as new rows on every real import.
+`export-json` writes the portable restore artifact, including semantic memories and current mirrored files. `export-json --verify` restores the written artifact into a temporary SQLite database and reports restore counts. `import-json --dry-run` validates and classifies a restore without mutation. Keyed memories are idempotent; mirrored files upsert by `project + path`; unkeyed memories import as new rows on every real import. Legacy snapshots containing multiple mirror revisions import the highest-ID revision for each path.
 
 ## Security and Privacy
 

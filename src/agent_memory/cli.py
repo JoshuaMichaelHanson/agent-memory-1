@@ -166,7 +166,7 @@ def build_parser() -> argparse.ArgumentParser:
     delete_parser.add_argument("--yes", action="store_true", help="Delete without interactive confirmation.")
     delete_parser.set_defaults(handler=handle_delete)
 
-    mirror_parser = subparsers.add_parser("mirror-file", help="Mirror one UTF-8 file revision into SQLite.", formatter_class=JsonHelpFormatter)
+    mirror_parser = subparsers.add_parser("mirror-file", help="Mirror the current UTF-8 file content into SQLite.", formatter_class=JsonHelpFormatter)
     add_common_options(mirror_parser)
     mirror_parser.add_argument("path", type=Path, help="File to mirror.")
     mirror_parser.add_argument("--project", required=True, help="Project name for the mirrored file.")
@@ -195,6 +195,8 @@ def build_parser() -> argparse.ArgumentParser:
     import_json_parser.add_argument("path", type=Path, help="JSON snapshot to import.")
     import_json_parser.add_argument("--allow-sensitive", action="store_true", help="Allow snapshot content that matches best-effort sensitive-value patterns.")
     import_json_parser.add_argument("--dry-run", action="store_true", help="Validate and classify the import without mutating the database.")
+    import_json_parser.add_argument("--no-restore-files", action="store_true", help="Import database rows without recreating mirrored Markdown files.")
+    import_json_parser.add_argument("--overwrite-files", action="store_true", help="Overwrite differing mirrored Markdown files without prompting.")
     import_json_parser.set_defaults(handler=handle_import_json)
     return parser
 
@@ -517,8 +519,18 @@ def handle_export_json(args: argparse.Namespace) -> int:
 
 def handle_import_json(args: argparse.Namespace) -> int:
     config = resolve_config(args.db)
-    result = MemoryService(config.database_path).import_json_snapshot(input_path=args.path, allow_sensitive=args.allow_sensitive, dry_run=args.dry_run)
+    result = MemoryService(config.database_path).import_json_snapshot(
+        input_path=args.path,
+        allow_sensitive=args.allow_sensitive,
+        dry_run=args.dry_run,
+        restore_files_root=None if args.no_restore_files else config.project_root,
+        confirm_file_overwrite=confirm_mirrored_file_overwrite,
+        overwrite_files=args.overwrite_files,
+    )
     payload = with_context(result, "import-json", config)
+    file_restore = result["file_restore"]
+    if file_restore["failed"]:
+        payload["ok"] = False
     if args.json:
         write_json(payload)
     else:
@@ -529,7 +541,30 @@ def handle_import_json(args: argparse.Namespace) -> int:
                 **result
             )
         )
-    return SUCCESS
+        if args.dry_run:
+            print(
+                f"Mirrored Markdown: {file_restore['would_create']} would be created, "
+                f"{file_restore['would_prompt']} would need overwrite confirmation, {file_restore['unchanged']} unchanged."
+            )
+        else:
+            print(
+                f"Mirrored Markdown: {file_restore['created']} created, {file_restore['overwritten']} overwritten, "
+                f"{file_restore['unchanged']} unchanged, {file_restore['skipped_conflict']} conflicts skipped."
+            )
+        for path in file_restore["conflicts"]:
+            print(f"Skipped differing mirrored file: {path}", file=sys.stderr)
+        for path in file_restore["unsafe_paths"]:
+            print(f"Skipped unrestorable mirrored path: {path}", file=sys.stderr)
+        for error in file_restore["errors"]:
+            print(f"File restore error: {error}", file=sys.stderr)
+    return FileOperationError.exit_code if file_restore["failed"] else SUCCESS
+
+
+def confirm_mirrored_file_overwrite(path: Path) -> bool:
+    if not sys.stdin.isatty():
+        return False
+    print(f"Overwrite differing mirrored file {path}? [y/N] ", end="", file=sys.stderr, flush=True)
+    return sys.stdin.readline().strip().lower() in {"y", "yes"}
 
 def require_delete_confirmation(args: argparse.Namespace) -> None:
     if args.yes:

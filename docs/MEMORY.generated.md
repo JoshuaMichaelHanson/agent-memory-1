@@ -3,7 +3,7 @@
 
 # Agent Memory: agent-memory-1
 
-Generated: 2026-08-06T20:07:54Z
+Generated: 2026-09-14T21:24:44Z
 
 ## Architecture
 
@@ -72,6 +72,16 @@ Run the full test suite with .\.venv\Scripts\python.exe -m pytest from the repos
 Do not commit the live .agent-memory SQLite database files. Git ignores memory.db, memory.db-shm, memory.db-wal, and .agent-memory/*.tmp; share memory through tracked JSON and Markdown exports instead.
 
 ## Decision
+
+### mirror-latest-only
+
+- ID: 18
+- Importance: 5
+- Scope: project
+- Updated: 2026-09-14T21:24:32.960Z
+- Tags: mirror
+
+Since schema v2, mirror-file stores one current row per project and path and updates it on content changes. Migration backs up v1 then keeps the highest-ID row per path; legacy snapshots collapse to the highest-ID mirror. Since CLI version 0.2.0, import-json also recreates missing mirrored Markdown under the project root, prompts before overwriting differing files in interactive terminals, and skips conflicts in noninteractive runs unless --overwrite-files is supplied. Database-only import is available with --no-restore-files.
 
 ### sqlite-canonical-store
 

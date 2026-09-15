@@ -35,7 +35,7 @@ Add a diagnostic command for real-repo setup and ongoing maintenance.
 
 ### Phase 11: Complete Snapshot Coverage
 
-Phase 11 status: complete. JSON snapshots now include semantic memories and mirrored file revisions.
+Phase 11 status: complete. JSON snapshots included semantic memories and mirrored file revisions at the time. Schema version 2 now exports one current mirror per project and path; see `docs/MEMORY_SYNC.md`.
 
 Make tracked memory handoff complete enough for another computer to recreate useful project context.
 
@@ -112,13 +112,12 @@ Create reusable agent templates that teach agents to use the global CLI even whe
 
 ### Phase 17: Schema Migration Framework
 
-Add migrations after the tool has been used long enough to know what should change.
+Phase 17 status: complete. Real mirror-file usage prompted the version 1 to 2 migration.
 
-- Keep this after the initial hardening work because the first real migration should be driven by actual usage.
-- Implement an ordered migration framework before changing schema version `1`.
-- Add backup-before-migrate behavior or a clear backup recommendation.
-- Add tests for initializing a fresh schema and upgrading an older schema.
-- Keep migrations simple and standard-library only unless a real need appears.
+- Back up the database before changing schema version 1.
+- Keep the highest-ID mirror for each project and path in version 2.
+- Test fresh initialization and version 1 upgrades.
+- Add further ordered migrations only when later schema changes require them.
 
 ### Phase 18: CI and Release Validation
 

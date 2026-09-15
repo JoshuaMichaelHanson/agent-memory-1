@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import os
 import subprocess
@@ -8,6 +9,9 @@ import sys
 import unittest
 import uuid
 from pathlib import Path
+from unittest.mock import patch
+
+from agent_memory.cli import confirm_mirrored_file_overwrite
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -40,6 +44,21 @@ class CliSmokeTests(unittest.TestCase):
         self.assertIn("agent-memory", result.stdout)
         self.assertIn("status", result.stdout)
 
+    def test_version_is_0_2_0(self) -> None:
+        result = self.run_agent_memory("--version")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("0.2.0", result.stdout)
+
+    def test_interactive_mirror_conflict_prompt(self) -> None:
+        class InteractiveInput(io.StringIO):
+            def isatty(self) -> bool:
+                return True
+
+        terminal_output = io.StringIO()
+        with patch("agent_memory.cli.sys.stdin", InteractiveInput("yes\n")), patch("agent_memory.cli.sys.stderr", terminal_output):
+            self.assertTrue(confirm_mirrored_file_overwrite(Path("AGENTS.md")))
+        self.assertIn("Overwrite differing mirrored file", terminal_output.getvalue())
+
     def test_status_json_before_database_initialization(self) -> None:
         db_path = self.db_path()
         result = self.run_agent_memory("status", "--json", "--db", str(db_path))
@@ -61,7 +80,7 @@ class CliSmokeTests(unittest.TestCase):
         init_payload = json.loads(init_result.stdout)
         self.assertTrue(init_payload["ok"])
         self.assertEqual(init_payload["command"], "init")
-        self.assertEqual(init_payload["schema_version"], "1")
+        self.assertEqual(init_payload["schema_version"], "2")
         self.assertTrue(db_path.exists())
         self.assertIn(init_payload["search_backend"], {"fts5", "like"})
 
@@ -76,7 +95,7 @@ class CliSmokeTests(unittest.TestCase):
         self.assertEqual(status_result.returncode, 0, status_result.stderr)
         status_payload = json.loads(status_result.stdout)
         self.assertTrue(status_payload["initialized"])
-        self.assertEqual(status_payload["schema_version"], "1")
+        self.assertEqual(status_payload["schema_version"], "2")
         self.assertEqual(status_payload["project"], "demo")
         self.assertEqual(status_payload["total_memory_count"], 0)
         self.assertTrue(status_payload["wal_enabled"])
@@ -836,6 +855,56 @@ class CliSmokeTests(unittest.TestCase):
         second_payload = json.loads(second_import.stdout)
         self.assertEqual(first_payload["mirrored_files_inserted"], 1)
         self.assertEqual(second_payload["mirrored_files_unchanged"], 1)
+
+    def test_import_json_restores_markdown_and_requires_explicit_noninteractive_overwrite(self) -> None:
+        db = self.db_path()
+        snapshot = db.parent / "snapshot.json"
+        snapshot.parent.mkdir(parents=True, exist_ok=True)
+        target = db.parent / "RESTORED.md"
+        relative_path = str(target.relative_to(REPO_ROOT))
+        snapshot.write_text(json.dumps({
+            "format": "agent-memory.snapshot.v1", "project": "demo", "memories": [],
+            "mirrored_files": [{"project": "demo", "path": relative_path, "content": "from snapshot\n"}],
+        }), encoding="utf-8")
+
+        created = self.run_agent_memory("import-json", str(snapshot), "--db", str(db), "--json")
+        self.assertEqual(created.returncode, 0, created.stderr)
+        self.assertEqual(json.loads(created.stdout)["file_restore"]["created"], 1)
+        self.assertEqual(target.read_text(encoding="utf-8"), "from snapshot\n")
+
+        target.write_text("local change\n", encoding="utf-8")
+        skipped = self.run_agent_memory("import-json", str(snapshot), "--db", str(db), "--json")
+        self.assertEqual(skipped.returncode, 0, skipped.stderr)
+        self.assertEqual(json.loads(skipped.stdout)["file_restore"]["skipped_conflict"], 1)
+        self.assertEqual(target.read_text(encoding="utf-8"), "local change\n")
+
+        overwritten = self.run_agent_memory("import-json", str(snapshot), "--db", str(db), "--json", "--overwrite-files")
+        self.assertEqual(overwritten.returncode, 0, overwritten.stderr)
+        self.assertEqual(json.loads(overwritten.stdout)["file_restore"]["overwritten"], 1)
+        self.assertEqual(target.read_text(encoding="utf-8"), "from snapshot\n")
+
+        target.unlink()
+        database_only = self.run_agent_memory("import-json", str(snapshot), "--db", str(db), "--json", "--no-restore-files")
+        self.assertEqual(database_only.returncode, 0, database_only.stderr)
+        self.assertFalse(json.loads(database_only.stdout)["file_restore"]["enabled"])
+        self.assertFalse(target.exists())
+
+    def test_import_json_reports_file_restore_failure(self) -> None:
+        db = self.db_path()
+        snapshot = db.parent / "snapshot.json"
+        snapshot.parent.mkdir(parents=True, exist_ok=True)
+        target = db.parent / "DIRECTORY.md"
+        target.mkdir()
+        snapshot.write_text(json.dumps({
+            "format": "agent-memory.snapshot.v1", "project": "demo", "memories": [],
+            "mirrored_files": [{"project": "demo", "path": str(target.relative_to(REPO_ROOT)), "content": "text"}],
+        }), encoding="utf-8")
+
+        result = self.run_agent_memory("import-json", str(snapshot), "--db", str(db), "--json")
+        payload = json.loads(result.stdout)
+        self.assertEqual(result.returncode, 6)
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["file_restore"]["failed"], 1)
 
     def test_import_json_dry_run_json_does_not_create_database(self) -> None:
         source_db = self.db_path()

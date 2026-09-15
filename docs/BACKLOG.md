@@ -116,9 +116,9 @@ Use this file as the operational checklist until the SQLite memory database is a
 
 ## Phase 11: Complete Snapshot Coverage
 
-- [x] Include `mirrored_files` revisions in `export-json`.
-- [x] Restore mirrored file revisions in `import-json`.
-- [x] Keep mirrored-file import idempotent by `project + path + content_sha256`.
+- [x] Include `mirrored_files` in `export-json`.
+- [x] Restore mirrored files in `import-json`.
+- [x] Keep mirrored-file import idempotent by `project + path`.
 - [x] Update snapshot documentation and tests.
 
 ## Phase 12: Backup and Restore Polish
@@ -162,10 +162,10 @@ Use this file as the operational checklist until the SQLite memory database is a
 
 ## Phase 17: Schema Migration Framework
 
-- [ ] Wait for real usage to identify schema changes before creating schema version `2`.
-- [ ] Add ordered migration framework before changing schema version `1`.
-- [ ] Add backup-before-migrate guidance.
-- [ ] Add fresh-init and old-schema upgrade tests.
+- [x] Use real mirror-file usage to justify schema version `2`.
+- [x] Add a version 1 to 2 migration before changing the schema.
+- [x] Add backup-before-migrate guidance.
+- [x] Add fresh-init and old-schema upgrade tests.
 
 ## Phase 18: CI and Release Validation
 
@@ -173,3 +173,12 @@ Use this file as the operational checklist until the SQLite memory database is a
 - [ ] Validate Windows, Linux, macOS, and supported Python versions.
 - [ ] Build wheel/sdist and smoke-test installed console script.
 - [ ] Add publishing/package checks if distribution becomes a goal.
+
+## Version 0.2.0: Mirrored Markdown Restore
+
+- [x] Bump package and CLI version to `0.2.0`.
+- [x] Create missing mirrored Markdown files during CLI JSON import.
+- [x] Prompt before overwriting differing files; skip conflicts in noninteractive runs.
+- [x] Add explicit unattended overwrite and database-only options.
+- [x] Keep dry-run and snapshot verification free of file writes.
+- [x] Reject unsafe restore paths and test restore behavior.
