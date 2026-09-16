@@ -69,19 +69,19 @@ pytest
 For the first small-group GitHub share, install from the repository URL:
 
 ```powershell
-pipx install git+https://github.com/<owner>/<repo>.git@main
+pipx install git+https://github.com/JoshuaMichaelHanson/agent-memory-1.git@main
 ```
 
 For private repositories or SSH access:
 
 ```powershell
-pipx install git+ssh://git@github.com/<owner>/<repo>.git@main
+pipx install git+ssh://github.com/JoshuaMichaelHanson/agent-memory-1.git@main
 ```
 
 Refresh after repository changes:
 
 ```powershell
-pipx install --force git+https://github.com/<owner>/<repo>.git@main
+pipx install --force git+https://github.com/JoshuaMichaelHanson/agent-memory-1.git@main
 ```
 
 From a local checkout:
@@ -98,6 +98,7 @@ pipx install agent-memory
 
 ## Quick Start
 
+PowerShell
 ```powershell
 python -m agent_memory init --db .\.agent-memory\memory.db --json
 
@@ -144,15 +145,25 @@ The project root is detected with `git rev-parse --show-toplevel`, falling back 
 
 Initializes the schema and reports FTS availability.
 
+PowerShell
 ```powershell
 agent-memory init --db .\.agent-memory\memory.db --json
+```
+POSIX
+```bash
+agent-memory init --db ./.agent-memory/memory.db --json
 ```
 
 ### `status`
 
 Reports database path, existence, schema version, memory count, journal mode, and search backend.
 
+PowerShell
 ```powershell
+agent-memory status --project demo --json
+```
+POSIX
+```bash
 agent-memory status --project demo --json
 ```
 
@@ -177,9 +188,15 @@ agent-memory instructions --project demo --json
 
 Installs or updates a managed `agent-memory` section in an agent instruction file such as `AGENTS.md`. Existing managed sections are replaced by marker; hand-written content outside the markers is preserved.
 
+PowerShell
 ```powershell
 agent-memory install-instructions --project demo --output .\AGENTS.md --json
 ```
+POSIX
+```bash
+agent-memory install-instructions --project demo --output ./AGENTS.md --json
+```
+
 
 ### `put`
 
@@ -252,7 +269,7 @@ agent-memory export-md --project demo --output .\docs\MEMORY.generated.md --json
 
 ### `export-json`
 
-Writes a machine-restorable JSON snapshot. Use `--verify` before checkin to restore the written snapshot into a temporary database and report restore counts.
+Writes a machine-restorable JSON snapshot. Use `--verify` before check-in to restore the written snapshot into a temporary database and report restore counts.
 
 ```powershell
 agent-memory export-json --project demo --output .\docs\agent-memory.snapshot.json --verify --json
