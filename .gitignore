@@ -77,3 +77,4 @@ temp/
 .agent-memory/memory.db-shm
 .agent-memory/memory.db-wal
 .agent-memory/*.tmp
+.agent-memory/*.bak

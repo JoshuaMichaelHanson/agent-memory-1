@@ -317,7 +317,7 @@ class ServicePutTests(unittest.TestCase):
         self.assertTrue(service.delete_by_key(project="demo", scope="project", kind="command", memory_key="delete-key"))
         self.assertIsNone(service.get_by_id(by_key.memory.id, touch=False))
 
-    def test_mirror_file_inserts_unchanged_and_changed_revisions(self) -> None:
+    def test_mirror_file_updates_one_row_even_when_content_returns_to_prior_value(self) -> None:
         path = self.db_path()
         service = MemoryService(path)
         source = path.parent / "AGENTS.md"
@@ -328,13 +328,19 @@ class ServicePutTests(unittest.TestCase):
         unchanged = service.mirror_file(project="demo", path=source, source_agent="codex", project_root=path.parent)
         source.write_text("Second revision\n", encoding="utf-8")
         changed = service.mirror_file(project="demo", path=source, source_agent="codex", project_root=path.parent)
+        source.write_text("First revision\n", encoding="utf-8")
+        restored = service.mirror_file(project="demo", path=source, source_agent="codex", project_root=path.parent)
+        with sqlite3.connect(path) as connection:
+            rows = connection.execute("SELECT content FROM mirrored_files").fetchall()
 
         self.assertEqual(first["operation"], "inserted")
         self.assertEqual(unchanged["operation"], "unchanged")
-        self.assertEqual(changed["operation"], "inserted")
+        self.assertEqual(changed["operation"], "updated")
+        self.assertEqual(restored["operation"], "updated")
         self.assertEqual(first["path"], "AGENTS.md")
         self.assertEqual(first["revision_id"], unchanged["revision_id"])
-        self.assertNotEqual(first["revision_id"], changed["revision_id"])
+        self.assertEqual(first["revision_id"], changed["revision_id"])
+        self.assertEqual(rows, [("First revision\n",)])
 
     def test_mirror_file_missing_raises_file_error(self) -> None:
         from agent_memory.errors import FileOperationError
@@ -525,6 +531,111 @@ class ServicePutTests(unittest.TestCase):
         self.assertEqual(mirrored_count, 1)
         self.assertEqual(mirrored_row[0], "AGENTS.md")
         self.assertIn("Use durable memory.", mirrored_row[1])
+
+    def test_legacy_snapshot_import_selects_latest_mirror_per_path(self) -> None:
+        path = self.db_path()
+        snapshot = path.parent / "legacy.json"
+        snapshot.parent.mkdir(parents=True, exist_ok=True)
+        snapshot.write_text(json.dumps({
+            "format": "agent-memory.snapshot.v1", "project": "demo", "memories": [],
+            "mirrored_files": [
+                {"id": 1, "project": "demo", "path": "AGENTS.md", "content": "old", "created_at": "2025-01-01"},
+                {"id": 2, "project": "demo", "path": "AGENTS.md", "content": "new", "created_at": "2025-01-02"},
+            ],
+        }), encoding="utf-8")
+
+        service = MemoryService(path)
+        dry_run = service.import_json_snapshot(input_path=snapshot, dry_run=True)
+        result = service.import_json_snapshot(input_path=snapshot)
+        with sqlite3.connect(path) as connection:
+            rows = connection.execute("SELECT content FROM mirrored_files").fetchall()
+
+        self.assertEqual(dry_run["mirrored_files_inserted"], 1)
+        self.assertEqual(result["mirrored_file_count"], 1)
+        self.assertEqual(result["mirrored_files_inserted"], 1)
+        self.assertEqual(rows, [("new",)])
+
+    def test_snapshot_import_updates_existing_mirror(self) -> None:
+        source_path = self.db_path()
+        source = MemoryService(source_path)
+        source_file = source_path.parent / "AGENTS.md"
+        source_file.parent.mkdir(parents=True, exist_ok=True)
+        source_file.write_text("new content", encoding="utf-8")
+        source.mirror_file(project="demo", path=source_file, project_root=source_path.parent)
+        snapshot = source_path.parent / "snapshot.json"
+        source.export_json_snapshot(project="demo", output_path=snapshot)
+
+        target_path = self.db_path()
+        target = MemoryService(target_path)
+        target_file = target_path.parent / "AGENTS.md"
+        target_file.parent.mkdir(parents=True, exist_ok=True)
+        target_file.write_text("old content", encoding="utf-8")
+        target.mirror_file(project="demo", path=target_file, project_root=target_path.parent)
+
+        dry_run = target.import_json_snapshot(input_path=snapshot, dry_run=True)
+        result = target.import_json_snapshot(input_path=snapshot)
+        with sqlite3.connect(target_path) as connection:
+            rows = connection.execute("SELECT content FROM mirrored_files").fetchall()
+
+        self.assertEqual(dry_run["mirrored_files_updated"], 1)
+        self.assertEqual(result["mirrored_files_updated"], 1)
+        self.assertEqual(rows, [("new content",)])
+
+    def test_import_restores_missing_markdown_and_prompts_only_for_different_content(self) -> None:
+        path = self.db_path()
+        root = path.parent
+        root.mkdir(parents=True, exist_ok=True)
+        snapshot = root / "snapshot.json"
+        snapshot.write_text(json.dumps({
+            "format": "agent-memory.snapshot.v1", "project": "demo", "memories": [],
+            "mirrored_files": [{"project": "demo", "path": "docs\\AGENTS.md", "content": "snapshot content\n"}],
+        }), encoding="utf-8")
+        target = root / "docs" / "AGENTS.md"
+        service = MemoryService(path)
+        prompts: list[Path] = []
+
+        preview = service.import_json_snapshot(input_path=snapshot, restore_files_root=root, dry_run=True)
+        self.assertEqual(preview["file_restore"]["would_create"], 1)
+        self.assertFalse(target.exists())
+
+        created = service.import_json_snapshot(input_path=snapshot, restore_files_root=root, confirm_file_overwrite=lambda p: prompts.append(p) or True)
+        self.assertEqual(created["file_restore"]["created"], 1)
+        self.assertEqual(target.read_text(encoding="utf-8"), "snapshot content\n")
+        self.assertEqual(prompts, [])
+
+        same = service.import_json_snapshot(input_path=snapshot, restore_files_root=root, confirm_file_overwrite=lambda p: prompts.append(p) or True)
+        self.assertEqual(same["file_restore"]["unchanged"], 1)
+        self.assertEqual(prompts, [])
+
+        target.write_text("local change\n", encoding="utf-8")
+        skipped = service.import_json_snapshot(input_path=snapshot, restore_files_root=root)
+        self.assertEqual(skipped["file_restore"]["skipped_conflict"], 1)
+        self.assertEqual(target.read_text(encoding="utf-8"), "local change\n")
+
+        overwritten = service.import_json_snapshot(input_path=snapshot, restore_files_root=root, confirm_file_overwrite=lambda p: prompts.append(p) or True)
+        self.assertEqual(overwritten["file_restore"]["overwritten"], 1)
+        self.assertEqual(prompts, [target])
+        self.assertEqual(target.read_text(encoding="utf-8"), "snapshot content\n")
+
+    def test_import_does_not_restore_unsafe_or_non_markdown_paths(self) -> None:
+        path = self.db_path()
+        root = path.parent
+        root.mkdir(parents=True, exist_ok=True)
+        snapshot = root / "snapshot.json"
+        snapshot.write_text(json.dumps({
+            "format": "agent-memory.snapshot.v1", "project": "demo", "memories": [],
+            "mirrored_files": [
+                {"project": "demo", "path": "..\\outside.md", "content": "outside"},
+                {"project": "demo", "path": "notes.txt", "content": "text"},
+                {"project": "demo", "path": ".GIT/config.md", "content": "metadata"},
+            ],
+        }), encoding="utf-8")
+
+        result = MemoryService(path).import_json_snapshot(input_path=snapshot, restore_files_root=root)
+
+        self.assertEqual(result["file_restore"]["skipped_unsafe"], 3)
+        self.assertFalse((root.parent / "outside.md").exists())
+        self.assertFalse((root / "notes.txt").exists())
 
     def test_import_json_dry_run_classifies_without_creating_database(self) -> None:
         source_path = self.db_path()

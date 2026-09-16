@@ -64,9 +64,11 @@ python -m agent_memory search "canonical memory store" --db ./.agent-memory/memo
 ## Snapshot Rules
 
 - The snapshot format is `agent-memory.snapshot.v1`.
-- Snapshots contain semantic `memories` and exact `mirrored_files` revisions.
+- Snapshots contain semantic `memories` and the current exact `mirrored_files` content per project and path. CLI import restores SQLite rows and creates missing mirrored `.md` files under the project root.
+- Existing Markdown with matching normalized content is left alone. Differing content prompts for overwrite in an interactive terminal; noninteractive imports skip and report conflicts. Use `--overwrite-files` for explicit unattended replacement or `--no-restore-files` for database-only import. `--dry-run` never writes files or prompts.
 - Keyed memories are idempotent on import because they upsert by `project + scope + kind + memory_key`.
-- Mirrored file revisions are idempotent on import by `project + path + content_sha256`.
+- Mirrored files upsert on import by `project + path`. Older snapshots with several revisions per path import the highest-ID revision.
+- Schema version 2 keeps one mirror row per path. The first write to a version 1 database creates a sibling `memory.db.schema-v1-*.bak` backup before migrating; retain that file until the migrated database and export are verified. Version 1 cannot identify a later A → B → A return to A, so verify migrated content against Git or the live file when available.
 - `import-json --dry-run` validates and classifies the restore without creating or mutating the target database.
 - `export-json --verify` writes the snapshot, restores it into a temporary database beside the snapshot, reports restore counts, and removes the temporary database.
 - Unkeyed memories are imported as new rows each time; validation reports a warning when they are present. Shared durable memories should use stable keys.

@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS schema_metadata (
 );
 
 INSERT INTO schema_metadata(key, value)
-VALUES ('schema_version', '1')
+VALUES ('schema_version', '2')
 ON CONFLICT(key) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS memories (
@@ -65,8 +65,11 @@ CREATE TABLE IF NOT EXISTS mirrored_files (
     created_at TEXT NOT NULL DEFAULT (
         strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
     ),
+    updated_at TEXT NOT NULL DEFAULT (
+        strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    ),
 
-    UNIQUE(project, path, content_sha256)
+    UNIQUE(project, path)
 );
 
 CREATE INDEX IF NOT EXISTS idx_mirrored_files_project_path

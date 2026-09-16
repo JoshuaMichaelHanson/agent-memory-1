@@ -5,9 +5,10 @@ import json
 import os
 import re
 import sqlite3
+import uuid
 from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any
+from pathlib import Path, PurePosixPath, PureWindowsPath
+from typing import Any, Callable
 
 from .database import connect_read_only, connect_writable, has_memories_fts, initialize_database
 from .errors import DatabaseError, FileOperationError, MemoryNotFoundError, ValidationError
@@ -372,12 +373,12 @@ class MemoryService:
                 with connection:
                     existing = connection.execute(
                         """
-                        SELECT id FROM mirrored_files
-                        WHERE project = ? AND path = ? AND content_sha256 = ?
+                        SELECT id, content_sha256 FROM mirrored_files
+                        WHERE project = ? AND path = ?
                         """,
-                        (project, stored_path, digest),
+                        (project, stored_path),
                     ).fetchone()
-                    if existing is not None:
+                    if existing is not None and existing["content_sha256"] == digest:
                         return {
                             "operation": "unchanged",
                             "project": project,
@@ -385,10 +386,25 @@ class MemoryService:
                             "content_sha256": digest,
                             "revision_id": int(existing["id"]),
                         }
+                    if existing is not None:
+                        connection.execute(
+                            """UPDATE mirrored_files
+                               SET content = ?, content_sha256 = ?, source_agent = ?,
+                                   updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                               WHERE id = ?""",
+                            (normalized_content, digest, source_agent, existing["id"]),
+                        )
+                        return {
+                            "operation": "updated",
+                            "project": project,
+                            "path": stored_path,
+                            "content_sha256": digest,
+                            "revision_id": int(existing["id"]),
+                        }
                     cursor = connection.execute(
                         """
-                        INSERT INTO mirrored_files(project, path, content, content_sha256, source_agent)
-                        VALUES (?, ?, ?, ?, ?)
+                        INSERT INTO mirrored_files(project, path, content, content_sha256, source_agent, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
                         """,
                         (project, stored_path, normalized_content, digest, source_agent),
                     )
@@ -514,16 +530,32 @@ class MemoryService:
             result["verification"] = verify_json_snapshot_restore(output_path)
         return result
 
-    def import_json_snapshot(self, *, input_path: Path, allow_sensitive: bool = False, dry_run: bool = False) -> dict[str, Any]:
+    def import_json_snapshot(
+        self,
+        *,
+        input_path: Path,
+        allow_sensitive: bool = False,
+        dry_run: bool = False,
+        restore_files_root: Path | None = None,
+        confirm_file_overwrite: Callable[[Path], bool] | None = None,
+        overwrite_files: bool = False,
+    ) -> dict[str, Any]:
         validation = validate_json_snapshot(input_path=input_path, allow_sensitive=allow_sensitive)
         if validation["error_count"]:
             raise ValidationError(format_snapshot_validation_errors(validation["errors"]))
 
         snapshot = validation["snapshot"]
         memories_payload = snapshot["memories"]
-        mirrored_files_payload = snapshot["mirrored_files"]
+        mirrored_files_payload = latest_mirrored_files_from_snapshot(snapshot["mirrored_files"])
+        file_actions, file_restore = plan_mirrored_file_restore(
+            mirrored_files_payload,
+            root=restore_files_root,
+            dry_run=dry_run,
+            confirm_overwrite=confirm_file_overwrite,
+            overwrite_files=overwrite_files,
+        )
         counts = {"inserted": 0, "updated": 0, "unchanged": 0, "unkeyed_inserted": 0}
-        mirrored_file_counts = {"mirrored_files_inserted": 0, "mirrored_files_unchanged": 0}
+        mirrored_file_counts = {"mirrored_files_inserted": 0, "mirrored_files_updated": 0, "mirrored_files_unchanged": 0}
 
         if dry_run:
             counts, mirrored_file_counts = classify_snapshot_import(
@@ -546,6 +578,7 @@ class MemoryService:
                 raise
             except Exception as exc:
                 raise DatabaseError(f"Could not import JSON snapshot into database: {self.database_path}") from exc
+            apply_mirrored_file_restore(file_actions, file_restore)
 
         return {
             "format": snapshot["format"],
@@ -556,6 +589,7 @@ class MemoryService:
             "memory_count": len(memories_payload),
             "mirrored_file_count": len(mirrored_files_payload),
             "validation": snapshot_validation_public_payload(validation),
+            "file_restore": file_restore,
             **counts,
             **mirrored_file_counts,
         }
@@ -668,7 +702,7 @@ def classify_snapshot_import(
     mirrored_files_payload: list[Any],
 ) -> tuple[dict[str, int], dict[str, int]]:
     counts = {"inserted": 0, "updated": 0, "unchanged": 0, "unkeyed_inserted": 0}
-    mirrored_file_counts = {"mirrored_files_inserted": 0, "mirrored_files_unchanged": 0}
+    mirrored_file_counts = {"mirrored_files_inserted": 0, "mirrored_files_updated": 0, "mirrored_files_unchanged": 0}
     if not database_path.exists():
         return classify_snapshot_against_empty_database(memories_payload, mirrored_files_payload)
 
@@ -701,12 +735,17 @@ def classify_snapshot_import(
                     continue
                 existing = connection.execute(
                     """
-                    SELECT id FROM mirrored_files
-                    WHERE project = ? AND path = ? AND content_sha256 = ?
+                    SELECT content_sha256 FROM mirrored_files
+                    WHERE project = ? AND path = ?
+                    ORDER BY id DESC LIMIT 1
                     """,
-                    (mirrored_file["project"], mirrored_file["path"], mirrored_file["content_sha256"]),
+                    (mirrored_file["project"], mirrored_file["path"]),
                 ).fetchone()
-                operation = "mirrored_files_unchanged" if existing is not None else "mirrored_files_inserted"
+                operation = (
+                    "mirrored_files_inserted" if existing is None else
+                    "mirrored_files_unchanged" if existing["content_sha256"] == mirrored_file["content_sha256"] else
+                    "mirrored_files_updated"
+                )
                 mirrored_file_counts[operation] += 1
     except ValidationError:
         raise
@@ -726,7 +765,7 @@ def classify_snapshot_against_empty_database(
             counts["unkeyed_inserted"] += 1
         else:
             counts["inserted"] += 1
-    return counts, {"mirrored_files_inserted": len(mirrored_files_payload), "mirrored_files_unchanged": 0}
+    return counts, {"mirrored_files_inserted": len(mirrored_files_payload), "mirrored_files_updated": 0, "mirrored_files_unchanged": 0}
 
 
 def table_exists_for_connection(connection, table_name: str) -> bool:
@@ -753,6 +792,7 @@ def verify_json_snapshot_restore(snapshot_path: Path) -> dict[str, Any]:
         "unchanged": result["unchanged"],
         "unkeyed_inserted": result["unkeyed_inserted"],
         "mirrored_files_inserted": result["mirrored_files_inserted"],
+        "mirrored_files_updated": result["mirrored_files_updated"],
         "mirrored_files_unchanged": result["mirrored_files_unchanged"],
     }
 
@@ -1063,11 +1103,14 @@ def select_mirrored_files_for_export(database_path: Path, *, project: str) -> li
     if not database_path.exists():
         return []
     with connect_read_only(database_path) as connection:
+        has_updated_at = any(row["name"] == "updated_at" for row in connection.execute("PRAGMA table_info(mirrored_files)"))
+        updated_at_expression = "updated_at" if has_updated_at else "created_at AS updated_at"
+        latest_only = "" if has_updated_at else "AND id IN (SELECT MAX(id) FROM mirrored_files GROUP BY project, path)"
         rows = connection.execute(
-            """
-            SELECT id, project, path, content, content_sha256, source_agent, created_at
+            f"""
+            SELECT id, project, path, content, content_sha256, source_agent, created_at, {updated_at_expression}
             FROM mirrored_files
-            WHERE project = ?
+            WHERE project = ? {latest_only}
             ORDER BY path ASC, created_at ASC, id ASC
             """,
             (project,),
@@ -1084,6 +1127,7 @@ def mirrored_file_row_to_dict(row) -> dict[str, Any]:
         "content_sha256": str(row["content_sha256"]),
         "source_agent": str(row["source_agent"]),
         "created_at": str(row["created_at"]),
+        "updated_at": str(row["updated_at"]),
     }
 
 
@@ -1095,6 +1139,7 @@ def mirrored_file_from_snapshot(item: Any) -> dict[str, Any]:
     content = normalize_content(str(item.get("content", "")))
     source_agent = str(item.get("source_agent", "unknown")).strip() or "unknown"
     created_at = str(item.get("created_at") or current_utc_timestamp())
+    updated_at = str(item.get("updated_at") or created_at)
     if not project:
         raise ValidationError("Snapshot mirrored file project is required.")
     if not path:
@@ -1110,24 +1155,173 @@ def mirrored_file_from_snapshot(item: Any) -> dict[str, Any]:
         "content_sha256": digest,
         "source_agent": source_agent,
         "created_at": created_at,
+        "updated_at": updated_at,
     }
+
+
+def latest_mirrored_files_from_snapshot(items: list[Any]) -> list[Any]:
+    """Collapse legacy revision-filled snapshots to one mirror per project and path."""
+    latest: dict[tuple[str, str], tuple[tuple[int, str, int], Any]] = {}
+    for position, item in enumerate(items):
+        key = (str(item["project"]).strip(), str(item["path"]).strip())
+        timestamp = str(item.get("updated_at") or item.get("created_at") or "")
+        try:
+            old_id = int(item.get("id") or 0)
+        except (TypeError, ValueError):
+            old_id = 0
+        order = (old_id, timestamp, position)
+        if key not in latest or order > latest[key][0]:
+            latest[key] = (order, item)
+    return [entry[1] for _, entry in sorted(latest.items())]
+
+
+def safe_mirrored_markdown_target(root: Path, stored_path: str) -> Path | None:
+    portable_path = stored_path.replace("\\", "/")
+    relative = PurePosixPath(portable_path)
+    if (
+        not portable_path
+        or "\x00" in portable_path
+        or relative.is_absolute()
+        or PureWindowsPath(stored_path).drive
+        or any(part.casefold() in {"..", ".git", ".agent-memory"} or ":" in part for part in relative.parts)
+        or relative.suffix.lower() != ".md"
+    ):
+        return None
+    try:
+        resolved_root = root.resolve()
+        target = resolved_root.joinpath(*relative.parts)
+        resolved_target = target.resolve()
+        if target.is_symlink() or not resolved_target.is_relative_to(resolved_root):
+            return None
+        if any(part.casefold() in {".git", ".agent-memory"} for part in resolved_target.relative_to(resolved_root).parts):
+            return None
+    except (OSError, RuntimeError, ValueError):
+        return None
+    return target
+
+
+def read_mirrored_file_content(path: Path) -> str | None:
+    try:
+        return normalize_content(path.read_text(encoding="utf-8"))
+    except UnicodeError:
+        return None
+
+
+def plan_mirrored_file_restore(
+    items: list[Any],
+    *,
+    root: Path | None,
+    dry_run: bool,
+    confirm_overwrite: Callable[[Path], bool] | None,
+    overwrite_files: bool,
+) -> tuple[list[tuple[Path, str, bool, str | None]], dict[str, Any]]:
+    result: dict[str, Any] = {
+        "enabled": root is not None,
+        "created": 0,
+        "overwritten": 0,
+        "unchanged": 0,
+        "skipped_conflict": 0,
+        "skipped_unsafe": 0,
+        "failed": 0,
+        "would_create": 0,
+        "would_prompt": 0,
+        "conflicts": [],
+        "unsafe_paths": [],
+        "errors": [],
+    }
+    actions: list[tuple[Path, str, bool, str | None]] = []
+    if root is None:
+        return actions, result
+    for item in items:
+        stored_path = str(item["path"])
+        target = safe_mirrored_markdown_target(root, stored_path)
+        if target is None:
+            result["skipped_unsafe"] += 1
+            result["unsafe_paths"].append(stored_path)
+            continue
+        content = mirrored_file_from_snapshot(item)["content"]
+        try:
+            exists = target.exists()
+            if exists and not target.is_file():
+                raise IsADirectoryError(f"Not a regular file: {target}")
+            existing_content = read_mirrored_file_content(target) if exists else None
+        except OSError as exc:
+            result["failed"] += 1
+            result["errors"].append(f"{stored_path}: {exc}")
+            continue
+        if not exists:
+            if dry_run:
+                result["would_create"] += 1
+            else:
+                actions.append((target, content, False, None))
+        elif existing_content == content:
+            result["unchanged"] += 1
+        elif dry_run:
+            result["would_prompt"] += 1
+        elif overwrite_files or (confirm_overwrite is not None and confirm_overwrite(target)):
+            actions.append((target, content, True, existing_content))
+        else:
+            result["skipped_conflict"] += 1
+            result["conflicts"].append(stored_path)
+    return actions, result
+
+
+def apply_mirrored_file_restore(actions: list[tuple[Path, str, bool, str | None]], result: dict[str, Any]) -> None:
+    for target, content, overwrite, previous_content in actions:
+        temporary: Path | None = None
+        created_new = False
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if overwrite:
+                if target.is_symlink() or not target.is_file() or read_mirrored_file_content(target) != previous_content:
+                    result["skipped_conflict"] += 1
+                    result["conflicts"].append(str(target))
+                    continue
+                temporary = target.with_name(f"{target.name}.{uuid.uuid4().hex}.tmp")
+                with temporary.open("x", encoding="utf-8", newline="\n") as stream:
+                    stream.write(content)
+                os.replace(temporary, target)
+                result["overwritten"] += 1
+            else:
+                with target.open("x", encoding="utf-8", newline="\n") as stream:
+                    created_new = True
+                    stream.write(content)
+                result["created"] += 1
+        except FileExistsError:
+            result["skipped_conflict"] += 1
+            result["conflicts"].append(str(target))
+        except OSError as exc:
+            if created_new:
+                target.unlink(missing_ok=True)
+            result["failed"] += 1
+            result["errors"].append(f"{target}: {exc}")
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
 
 
 def import_mirrored_file_snapshot(connection, item: Any) -> str:
     mirrored_file = mirrored_file_from_snapshot(item)
     existing = connection.execute(
         """
-        SELECT id FROM mirrored_files
-        WHERE project = ? AND path = ? AND content_sha256 = ?
+        SELECT id, content_sha256 FROM mirrored_files
+        WHERE project = ? AND path = ?
         """,
-        (mirrored_file["project"], mirrored_file["path"], mirrored_file["content_sha256"]),
+        (mirrored_file["project"], mirrored_file["path"]),
     ).fetchone()
     if existing is not None:
-        return "mirrored_files_unchanged"
+        if existing["content_sha256"] == mirrored_file["content_sha256"]:
+            return "mirrored_files_unchanged"
+        connection.execute(
+            """UPDATE mirrored_files SET content = ?, content_sha256 = ?, source_agent = ?, updated_at = ?
+               WHERE id = ?""",
+            (mirrored_file["content"], mirrored_file["content_sha256"], mirrored_file["source_agent"], mirrored_file["updated_at"], existing["id"]),
+        )
+        return "mirrored_files_updated"
     connection.execute(
         """
-        INSERT INTO mirrored_files(project, path, content, content_sha256, source_agent, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO mirrored_files(project, path, content, content_sha256, source_agent, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         (
             mirrored_file["project"],
@@ -1136,6 +1330,7 @@ def import_mirrored_file_snapshot(connection, item: Any) -> str:
             mirrored_file["content_sha256"],
             mirrored_file["source_agent"],
             mirrored_file["created_at"],
+            mirrored_file["updated_at"],
         ),
     )
     return "mirrored_files_inserted"

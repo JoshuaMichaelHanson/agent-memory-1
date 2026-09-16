@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import uuid
 from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
@@ -8,7 +9,7 @@ from typing import Any
 
 from .errors import DatabaseError
 
-SCHEMA_VERSION = "1"
+SCHEMA_VERSION = "2"
 
 FTS_SCHEMA = """
 CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
@@ -95,6 +96,15 @@ class StatusResult:
 def initialize_database(database_path: Path) -> InitializeResult:
     database_path.parent.mkdir(parents=True, exist_ok=True)
     with connect_writable(database_path) as connection:
+        existing_version = get_schema_version(connection)
+        if existing_version == "1":
+            back_up_database(connection, database_path, "schema-v1")
+            migrate_v1_to_v2(connection)
+        elif existing_version == SCHEMA_VERSION and mirror_timestamp_defaults_missing(connection):
+            back_up_database(connection, database_path, "schema-v2-repair")
+            repair_v2_mirror_defaults(connection)
+        elif existing_version not in (None, SCHEMA_VERSION):
+            raise DatabaseError(f"Unsupported database schema version: {existing_version}")
         schema_text = read_schema_text()
         with connection:
             connection.executescript(schema_text)
@@ -112,6 +122,85 @@ def initialize_database(database_path: Path) -> InitializeResult:
         search_backend=search_backend,
         journal_mode=journal_mode,
     )
+
+
+def back_up_database(connection: sqlite3.Connection, database_path: Path, label: str) -> Path:
+    backup_path = database_path.with_name(f"{database_path.name}.{label}-{uuid.uuid4().hex}.bak")
+    try:
+        with sqlite3.connect(backup_path) as backup:
+            connection.backup(backup)
+    except sqlite3.Error as exc:
+        backup_path.unlink(missing_ok=True)
+        raise DatabaseError(f"Could not back up database before schema migration: {database_path}") from exc
+    return backup_path
+
+
+def migrate_v1_to_v2(connection: sqlite3.Connection) -> None:
+    """Keep the newest stored mirror for each path; retain the full v1 DB in a backup."""
+    try:
+        with connection:
+            connection.execute(
+                """CREATE TABLE mirrored_files_v2 (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    project TEXT NOT NULL,
+                    path TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    content_sha256 TEXT NOT NULL,
+                    source_agent TEXT NOT NULL DEFAULT 'unknown',
+                    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+                    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+                    UNIQUE(project, path)
+                )"""
+            )
+            connection.execute(
+                """INSERT INTO mirrored_files_v2
+                   (id, project, path, content, content_sha256, source_agent, created_at, updated_at)
+                   SELECT old.id, old.project, old.path, old.content, old.content_sha256,
+                          old.source_agent, old.created_at, old.created_at
+                   FROM mirrored_files AS old
+                   WHERE old.id = (
+                       SELECT MAX(newer.id) FROM mirrored_files AS newer
+                       WHERE newer.project = old.project AND newer.path = old.path
+                   )"""
+            )
+            connection.execute("DROP TABLE mirrored_files")
+            connection.execute("ALTER TABLE mirrored_files_v2 RENAME TO mirrored_files")
+            connection.execute("CREATE INDEX idx_mirrored_files_project_path ON mirrored_files(project, path)")
+            connection.execute("UPDATE schema_metadata SET value = ? WHERE key = 'schema_version'", (SCHEMA_VERSION,))
+    except sqlite3.Error as exc:
+        raise DatabaseError("Could not migrate database schema from 1 to 2; the original database backup remains available.") from exc
+
+
+def mirror_timestamp_defaults_missing(connection: sqlite3.Connection) -> bool:
+    columns = {row["name"]: row["dflt_value"] for row in connection.execute("PRAGMA table_info(mirrored_files)")}
+    return any(name in columns and columns[name] is None for name in ("created_at", "updated_at"))
+
+
+def repair_v2_mirror_defaults(connection: sqlite3.Connection) -> None:
+    """Repair databases migrated by an early version 2 build without defaults."""
+    try:
+        with connection:
+            connection.execute(
+                """CREATE TABLE mirrored_files_fixed (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    project TEXT NOT NULL, path TEXT NOT NULL, content TEXT NOT NULL,
+                    content_sha256 TEXT NOT NULL, source_agent TEXT NOT NULL DEFAULT 'unknown',
+                    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+                    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+                    UNIQUE(project, path)
+                )"""
+            )
+            connection.execute(
+                """INSERT INTO mirrored_files_fixed
+                   (id, project, path, content, content_sha256, source_agent, created_at, updated_at)
+                   SELECT id, project, path, content, content_sha256, source_agent, created_at, updated_at
+                   FROM mirrored_files"""
+            )
+            connection.execute("DROP TABLE mirrored_files")
+            connection.execute("ALTER TABLE mirrored_files_fixed RENAME TO mirrored_files")
+            connection.execute("CREATE INDEX idx_mirrored_files_project_path ON mirrored_files(project, path)")
+    except sqlite3.Error as exc:
+        raise DatabaseError("Could not repair mirrored file timestamp defaults; the original database backup remains available.") from exc
 
 
 def inspect_database(database_path: Path, project: str) -> StatusResult:
